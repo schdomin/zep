@@ -1,6 +1,9 @@
 package main;
 
+import java.net.MalformedURLException;
 import java.sql.SQLException;
+
+import org.opencv.core.Core;
 
 //ds custom imports
 import exceptions.CZEPEoIException;
@@ -46,6 +49,9 @@ public final class CMain
         System.out.println( "|                                          LAUNCH PHASE                                         |" );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         
+    	//ds load OpenCV core
+    	System.loadLibrary( Core.NATIVE_LIBRARY_NAME );
+        
         //ds allocate the MySQL manager
         final CMySQLManager cMySQLManager = new CMySQLManager( m_strMySQLDriver, m_strMySQLServerURL, m_strMySQLUsername, m_strMySQLPassword );
         
@@ -87,6 +93,12 @@ public final class CMain
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
 	        return;      
 	    }
+        catch( MalformedURLException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) MalformedURLException: " + e.getMessage( ) + " - could not fetch database" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            return;
+        }
 	    catch( CZEPMySQLManagerException e )
 	    {
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " - could not launch <CLearner>" );

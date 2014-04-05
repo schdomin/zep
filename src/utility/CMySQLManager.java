@@ -70,14 +70,14 @@ public final class CMySQLManager
     {
         //ds first check if we already have an entry for this image (no double URLs allowed)
         final PreparedStatement cStatementCheckDataPoint = m_cMySQLConnection.prepareStatement( "SELECT `id_datapoint` from `datapoints` WHERE (`url`) = (?) LIMIT 1" );
-        cStatementCheckDataPoint.setString( 1, p_cDataPoint.getURL( ) );
+        cStatementCheckDataPoint.setString( 1, p_cDataPoint.getURL( ).toString( ) );
         
         //ds if there is no entry yet
         if( !cStatementCheckDataPoint.executeQuery( ).next( ) )
         {
             //ds add the datapoint to the SQL database
             final PreparedStatement cStatementInsertDataPoint = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `datapoints` (`url`, `title`, `type`) VALUE (?,?,?)" );
-            cStatementInsertDataPoint.setString( 1, p_cDataPoint.getURL( ) );
+            cStatementInsertDataPoint.setString( 1, p_cDataPoint.getURL( ).toString( ) );
             cStatementInsertDataPoint.setString( 2, p_cDataPoint.getTitle( ) );
             cStatementInsertDataPoint.setString( 3, p_cDataPoint.getType( ) );
             cStatementInsertDataPoint.executeUpdate( );          
@@ -94,7 +94,7 @@ public final class CMySQLManager
             //ds add the image file to the database
             final PreparedStatement cStatementInsertImage = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `images` (`id_datapoint`, `file`) VALUE (?,?)" );
             cStatementInsertImage.setInt( 1, iID_DataPoint );
-            cStatementInsertImage.setBlob( 2, new URL( p_cDataPoint.getURL( ) ).openStream( ) );
+            cStatementInsertImage.setBlob( 2, new URL( p_cDataPoint.getURL( ).toString( ) ).openStream( ) );
             cStatementInsertImage.executeUpdate( );
             
             //ds then add the tags to the features table
@@ -136,7 +136,7 @@ public final class CMySQLManager
     }
     
     //ds access function
-    public Map< Integer, CDataPoint > getDataset( ) throws SQLException
+    public Map< Integer, CDataPoint > getDataset( ) throws SQLException, MalformedURLException
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) received fetch request - start downloading .." );
         
@@ -199,7 +199,7 @@ public final class CMySQLManager
             }
             
             //ds add the datapoint to the map
-            mapDataset.put( iID_DataPoint, new CDataPoint( iID_DataPoint, strURL, strTitle, strType, vecTags ) );
+            mapDataset.put( iID_DataPoint, new CDataPoint( iID_DataPoint, new URL( strURL ), strTitle, strType, vecTags ) );
             
             //ds update
             ++iNumberOfDataPoints;

@@ -1,5 +1,6 @@
 package learning;
 
+import java.net.MalformedURLException;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -60,7 +61,7 @@ public final class CLearner
     }
     
     //ds launcher
-    public void launch( ) throws SQLException, CZEPMySQLManagerException
+    public void launch( ) throws SQLException, CZEPMySQLManagerException, MalformedURLException
     {
         //ds check if empty
         if( m_cMySQLManager.isEmpty( ) )

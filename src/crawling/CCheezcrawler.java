@@ -1,6 +1,7 @@
 package crawling;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.SQLException;
 import java.util.Random;
@@ -10,9 +11,10 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.opencv.core.Core;
 
+//ds custom
 import exceptions.CZEPMySQLManagerException;
-
 import utility.CConverter;
 import utility.CDataPoint;
 import utility.CLogger;
@@ -21,7 +23,7 @@ import utility.CMySQLManager;
 public class CCheezcrawler extends Thread
 {
     //ds crawling attributes set by configuration file
-    final private String m_strMasterURL;
+    final private URL m_cMasterURL;
     final private int m_iNumberOfPages;
     final private int m_iTimeoutMS;
     final private int m_iLogLevel;
@@ -40,11 +42,11 @@ public class CCheezcrawler extends Thread
     private final CMySQLManager m_cMySQLManager;
     
     //ds constructor
-    public CCheezcrawler( final CMySQLManager p_cMySQLManager, final String p_strMasterURL, final int p_iNumberOfPages, final int p_iTimeoutMS, final int p_iLogLevel )
+    public CCheezcrawler( final CMySQLManager p_cMySQLManager, final URL p_cMasterURL, final int p_iNumberOfPages, final int p_iTimeoutMS, final int p_iLogLevel )
     {
         //ds assign values
         m_cMySQLManager  = p_cMySQLManager;
-        m_strMasterURL   = p_strMasterURL;
+        m_cMasterURL     = p_cMasterURL;
         m_iNumberOfPages = p_iNumberOfPages;
         m_iTimeoutMS     = p_iTimeoutMS;
         m_iLogLevel      = p_iLogLevel;
@@ -53,7 +55,7 @@ public class CCheezcrawler extends Thread
     };
     
     //ds standalone
-    public static void main( String[] args )
+    public static void main( String[] args ) throws MalformedURLException
     {
         //ds default configuration parameters: mysql
         final String strMySQLDriver    = "com.mysql.jdbc.Driver";
@@ -62,10 +64,13 @@ public class CCheezcrawler extends Thread
         final String strMySQLPassword  = "N0effort";
         
         //ds default configuration parameters: cheezcrawler
-        final String strMasterURL_Cheezcrawler = "http://memebase.cheezburger.com/";
+        final URL cMasterURL_Cheezcrawler      = new URL( "http://memebase.cheezburger.com/" );
         final int iNumberOfPages_Cheezcrawler  = 0;
         final int iTimeoutMS_Cheezcrawler      = 10000;
         final int iLogLevel_Cheezcrawler       = 0;
+        
+    	//ds load OpenCV core
+    	System.loadLibrary( Core.NATIVE_LIBRARY_NAME );
         
         //ds allocate the MySQL manager
         final CMySQLManager cMySQLManager = new CMySQLManager( strMySQLDriver, strMySQLServerURL, strMySQLUsername, strMySQLPassword );
@@ -77,26 +82,26 @@ public class CCheezcrawler extends Thread
         }
         catch( ClassNotFoundException e )
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) ClassNotFoundException: " + e.getMessage( ) + " - could not establish MySQL connection" );
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(main) ClassNotFoundException: " + e.getMessage( ) + " - could not establish MySQL connection" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(main) aborted" );
             return;
         }
         catch( SQLException e )
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) SQLException: " + e.getMessage( ) + " - could not establish a valid MySQL connection" );
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(main) SQLException: " + e.getMessage( ) + " - could not establish a valid MySQL connection" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(main) aborted" );
             return;            
         }
         catch( CZEPMySQLManagerException e )
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " - failed to connect" );
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " - failed to connect" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(main) aborted" );
             return;            
         }
         
         
         //ds allocate a crawler instance
-        final Thread cCrawler = new Thread( new CCheezcrawler( cMySQLManager, strMasterURL_Cheezcrawler, iNumberOfPages_Cheezcrawler, iTimeoutMS_Cheezcrawler, iLogLevel_Cheezcrawler ) );
+        final Thread cCrawler = new Thread( new CCheezcrawler( cMySQLManager, cMasterURL_Cheezcrawler, iNumberOfPages_Cheezcrawler, iTimeoutMS_Cheezcrawler, iLogLevel_Cheezcrawler ) );
         
         //ds start it (blocking)
         cCrawler.run( );
@@ -108,9 +113,9 @@ public class CCheezcrawler extends Thread
         try
         {
             //ds crawl frontpage
-            _crawlPage( m_strMasterURL );
+            _crawlPage( m_cMasterURL );
             
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) crawled first page: " + m_strMasterURL );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) crawled first page: " + m_cMasterURL );
             
             //ds if we have a finite number of pages to crawl
             if( 0 != m_iNumberOfPages )
@@ -127,7 +132,7 @@ public class CCheezcrawler extends Thread
                     }
                     
                     //ds simply add the page number
-                    _crawlPage( m_strMasterURL + "page/" + Integer.toString( i ) );
+                    _crawlPage( new URL( m_cMasterURL.toString( ) + "page/" + Integer.toString( i ) ) );
                 }
             }
             else
@@ -141,7 +146,7 @@ public class CCheezcrawler extends Thread
                 while( !Thread.interrupted( ) )
                 {
                     //ds simply add the page number
-                    _crawlPage( m_strMasterURL + "page/" + Integer.toString( iCurrentPage ) );
+                    _crawlPage( new URL( m_cMasterURL.toString( ) + "page/" + Integer.toString( iCurrentPage ) ) );
                     
                     //ds increase counter
                     ++iCurrentPage;
@@ -157,6 +162,12 @@ public class CCheezcrawler extends Thread
         {
             
             System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) SQLException: " + e.getMessage( ) + " - could not store last datapoint in MySQL (" + m_iCurrentNumberOfImages + ")" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) aborted" );
+            return;
+        }
+        catch( MalformedURLException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) MalformedURLException: " + e.getMessage( ) + " - crawler failure" );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) aborted" );
             return;
         }
@@ -178,14 +189,14 @@ public class CCheezcrawler extends Thread
         return;
     }
     
-    private void _crawlPage( final String p_strURL ) throws IOException, InterruptedException, SQLException
+    private void _crawlPage( final URL p_cURL ) throws IOException, InterruptedException, SQLException
     {        
         if( 0 == m_iLogLevel )
         {
             System.out.println( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(_crawlPage) current NoI: " + m_iCurrentNumberOfImages );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(_crawlPage) current NoP: " + m_iCurrentNumberOfPages );
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(_crawlPage)   accessing: " + p_strURL );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(_crawlPage)   accessing: " + p_cURL );
             System.out.println( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         }
         
@@ -195,12 +206,12 @@ public class CCheezcrawler extends Thread
         try
         {
             //ds try to open the current page
-            cCurrentPage = Jsoup.connect( p_strURL ).timeout( m_iTimeoutMS ).get( );
+            cCurrentPage = Jsoup.connect( p_cURL.toString( ) ).timeout( m_iTimeoutMS ).get( );
         }
         catch( IOException e )
         {
             //ds in case of error return for this page
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(_crawlPage) IOException: " + e.getMessage( ) + " - skipped page: " + p_strURL );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(_crawlPage) IOException: " + e.getMessage( ) + " - skipped page: " + p_cURL );
             return;
         }
         
@@ -243,46 +254,50 @@ public class CCheezcrawler extends Thread
                     }
                     
                     //ds create the datapoint
-                    final CDataPoint cDataPoint = new CDataPoint( 0, strDownloadPath, strTitle, strExtension, vec_strTags );
+                    final CDataPoint cDataPoint = new CDataPoint( 0, new URL( strDownloadPath ), strTitle, strExtension, vec_strTags );
                     
-                    //ds increase image counter
-                    ++m_iCurrentNumberOfImages;
-                    
-                    //ds and feature counter
-                    m_iCurrentNumberOfFeatures += vec_strTags.size( );
-                    
-                    try
+                    //ds check if not a gif
+                    if( "gif" != strExtension )
                     {
-                        //ds insert
-                        m_cMySQLManager.insertDataPoint( cDataPoint );
-                        
-                        //ds increase if insertion was successful
-                        ++m_iCurrentNumberOfImagesToMySQL;
-                        
-                        //ds info
-                        if( 1 >= m_iLogLevel )
-                        {
-                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage) added new image (" + m_iCurrentNumberOfImages + ")" );
-                        }
-                        
-                        //ds detailed info
-                        if( 0 == m_iLogLevel )
-                        {
-                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)           title: " + cDataPoint.getTitle( ) );
-                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)    download URL: " + cDataPoint.getURL( ) );
-                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)            type: " + cDataPoint.getType( ) );
-                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)            tags: " + cDataPoint.getTags( ) );
-                        }
-                    }
-                    catch( CZEPMySQLManagerException e )
-                    {
-                        if( 1 >= m_iLogLevel )
-                        {
-                            //ds not fatal since we have the data backed up in our map
-                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage) CZEPMySQLManagerException: " + e.getMessage( ) + " - datapoint already in database (" + m_iCurrentNumberOfImages + ")" );
-                        }
-                        
-                        ++m_iCurrentNumberOfAlreadyMySQL;
+	                    //ds increase image counter
+	                    ++m_iCurrentNumberOfImages;
+	                    
+	                    //ds and feature counter
+	                    m_iCurrentNumberOfFeatures += vec_strTags.size( );
+	                    
+	                    try
+	                    {
+	                        //ds insert
+	                        m_cMySQLManager.insertDataPoint( cDataPoint );
+	                        
+	                        //ds increase if insertion was successful
+	                        ++m_iCurrentNumberOfImagesToMySQL;
+	                        
+	                        //ds info
+	                        if( 1 >= m_iLogLevel )
+	                        {
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage) added new image (" + m_iCurrentNumberOfImages + ")" );
+	                        }
+	                        
+	                        //ds detailed info
+	                        if( 0 == m_iLogLevel )
+	                        {
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)           title: " + cDataPoint.getTitle( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)    download URL: " + cDataPoint.getURL( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)            type: " + cDataPoint.getType( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)            tags: " + cDataPoint.getTags( ) );
+	                        }
+	                    }
+	                    catch( CZEPMySQLManagerException e )
+	                    {
+	                        if( 1 >= m_iLogLevel )
+	                        {
+	                            //ds not fatal since we have the data backed up in our map
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage) CZEPMySQLManagerException: " + e.getMessage( ) + " - datapoint already in database (" + m_iCurrentNumberOfImages + ")" );
+	                        }
+	                        
+	                        ++m_iCurrentNumberOfAlreadyMySQL;
+	                    }
                     }
                 }
             }
