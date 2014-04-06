@@ -1,5 +1,6 @@
 package crawling;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -7,16 +8,20 @@ import java.sql.SQLException;
 import java.util.Random;
 import java.util.Vector;
 
+import javax.imageio.ImageIO;
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.opencv.core.Core;
 
+import exceptions.CZEPConversionException;
 //ds custom
 import exceptions.CZEPMySQLManagerException;
 import utility.CConverter;
 import utility.CDataPoint;
+import utility.CImageHandler;
 import utility.CLogger;
 import utility.CMySQLManager;
 
@@ -66,7 +71,7 @@ public class CCheezcrawler extends Thread
         //ds default configuration parameters: cheezcrawler
         final URL cMasterURL_Cheezcrawler      = new URL( "http://memebase.cheezburger.com/" );
         final int iNumberOfPages_Cheezcrawler  = 0;
-        final int iTimeoutMS_Cheezcrawler      = 10000;
+        final int iTimeoutMS_Cheezcrawler      = 60000;
         final int iLogLevel_Cheezcrawler       = 0;
         
     	//ds load OpenCV core
@@ -177,6 +182,12 @@ public class CCheezcrawler extends Thread
             System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) aborted" );
             return;
         }
+        catch( CZEPConversionException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) CZEPConversionException: " + e.getMessage( ) + " - internal image conversion error" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) aborted" );
+            return;
+        }
         catch( InterruptedException e )
         {
             System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) InterruptedException: " + e.getMessage( ) + " - crawling terminated by signal" );
@@ -189,7 +200,7 @@ public class CCheezcrawler extends Thread
         return;
     }
     
-    private void _crawlPage( final URL p_cURL ) throws IOException, InterruptedException, SQLException
+    private void _crawlPage( final URL p_cURL ) throws IOException, InterruptedException, SQLException, CZEPConversionException
     {        
         if( 0 == m_iLogLevel )
         {
@@ -203,17 +214,8 @@ public class CCheezcrawler extends Thread
         //ds allocate a webpage handle
         final Document cCurrentPage;
         
-        try
-        {
-            //ds try to open the current page
-            cCurrentPage = Jsoup.connect( p_cURL.toString( ) ).timeout( m_iTimeoutMS ).get( );
-        }
-        catch( IOException e )
-        {
-            //ds in case of error return for this page
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(_crawlPage) IOException: " + e.getMessage( ) + " - skipped page: " + p_cURL );
-            return;
-        }
+        //ds try to open the current page
+        cCurrentPage = Jsoup.connect( p_cURL.toString( ) ).timeout( m_iTimeoutMS ).get( );
         
         //ds get all posts on this page
         final Elements vec_cPosts = cCurrentPage.getElementsByClass( "content-card" );
@@ -228,37 +230,57 @@ public class CCheezcrawler extends Thread
             if( null != cImageHolder )
             {
                 //ds obtain relevant attributes
-                final String strTitle        = cImageHolder.attr( "title" );
-                final String strDownloadPath = cImageHolder.attr( "src" );
+                final String strTitle   = cImageHolder.attr( "title" );
+                final URL cDownloadPath = new URL( cImageHolder.attr( "src" ) );
                 
-                //ds check file extension
-                final String strExtension = CConverter.getFileExtensionFromURL( new URL( strDownloadPath ) ).toLowerCase( );
-
-                //ds get the tag holder (only one per post)
-                final Element cTagHolder = cCurrentPost.getElementsByClass( "tags" ).first( );
+                //ds get file extension
+                final String strExtension = CConverter.getFileExtensionFromURL( cDownloadPath ).toLowerCase( );
                 
-                //ds if something was found
-                if( null != cTagHolder )
+                //ds only accept jpeg/jpg/jpe
+                if( strExtension.matches( "jpeg" ) || strExtension.matches( "jpg" ) || strExtension.matches( "jpe" ) )
                 {
-                    //ds get the tag vector
-                    final Elements vec_cTags = cTagHolder.getElementsByClass( "alt" );
-                    
-                    //ds tag vector
-                    Vector< String > vec_strTags = new Vector<String>( );
-                    
-                    //ds loop over all tags
-                    for( Element cTag: vec_cTags )
-                    {
-                        //ds add the current tag to the vector
-                        vec_strTags.add( cTag.text( ).toLowerCase( ) );
-                    }
-                    
-                    //ds create the datapoint
-                    final CDataPoint cDataPoint = new CDataPoint( 0, new URL( strDownloadPath ), strTitle, strExtension, vec_strTags );
-                    
-                    //ds check if not a gif
-                    if( "gif" != strExtension )
-                    {
+                	/*ds get the Likes/Dislikes holders
+                	final Element cLikesHolder = ( cCurrentPost.getElementsByClass( "js-vote-up" ).first( ) ).getElementsByClass( "js-vote-count" ).first( );
+                	final Element cDislikesHolder = ( cCurrentPost.getElementsByClass( "js-vote-down" ).first( ) ).getElementsByClass( "js-vote-count" ).first( );
+                	
+                	//ds TODO extract values from javascript call
+                	final String strLikes    = cLikesHolder.text( );
+                	final String strDislikes = cDislikesHolder.text( );*/
+                	final int iLikes    	 = 0;
+                	final int iDislikes      = 0;
+                	final int iCountComments = 0;
+                	
+                	//ds get the image
+                	final BufferedImage cImage = ImageIO.read( cDownloadPath );
+                	
+                	//ds compute text area of image
+                	final double dTextAmount = CImageHandler.getTextPercentageCanny( cImage );
+                	
+                	//ds check if photograph
+                	final boolean bIsPhoto = CImageHandler.isAPhotographGray( cImage );
+                	
+	                //ds get the tag holder (only one per post)
+	                final Element cTagHolder = cCurrentPost.getElementsByClass( "tags" ).first( );
+	                
+	                //ds if something was found
+	                if( null != cTagHolder )
+	                {
+	                    //ds get the tag vector
+	                    final Elements vec_cTags = cTagHolder.getElementsByClass( "alt" );
+	                    
+	                    //ds tag vector
+	                    Vector< String > vec_strTags = new Vector<String>( );
+	                    
+	                    //ds loop over all tags
+	                    for( Element cTag: vec_cTags )
+	                    {
+	                        //ds add the current tag to the vector
+	                        vec_strTags.add( cTag.text( ).toLowerCase( ) );
+	                    }
+	                    
+	                    //ds create the datapoint
+	                    final CDataPoint cDataPoint = new CDataPoint( 0, cDownloadPath, strTitle, strExtension, iLikes, iDislikes, iCountComments, vec_strTags.size( ), bIsPhoto, dTextAmount , vec_strTags );
+	                    
 	                    //ds increase image counter
 	                    ++m_iCurrentNumberOfImages;
 	                    
@@ -282,10 +304,12 @@ public class CCheezcrawler extends Thread
 	                        //ds detailed info
 	                        if( 0 == m_iLogLevel )
 	                        {
-	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)           title: " + cDataPoint.getTitle( ) );
-	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)    download URL: " + cDataPoint.getURL( ) );
-	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)            type: " + cDataPoint.getType( ) );
-	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)            tags: " + cDataPoint.getTags( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)        Title: " + cDataPoint.getTitle( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage) Download URL: " + cDataPoint.getURL( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)  Text Amount: " + cDataPoint.getTextAmount( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)      IsPhoto: " + cDataPoint.isPhoto( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)         Type: " + strExtension );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)         Tags: " + cDataPoint.getTags( ) );
 	                        }
 	                    }
 	                    catch( CZEPMySQLManagerException e )
@@ -298,7 +322,7 @@ public class CCheezcrawler extends Thread
 	                        
 	                        ++m_iCurrentNumberOfAlreadyMySQL;
 	                    }
-                    }
+                	}
                 }
             }
         }

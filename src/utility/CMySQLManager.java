@@ -1,5 +1,6 @@
 package utility;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -11,6 +12,8 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
+
+import javax.imageio.ImageIO;
 
 //ds custom imports
 import exceptions.CZEPMySQLManagerException;
@@ -69,17 +72,25 @@ public final class CMySQLManager
     public void insertDataPoint( final CDataPoint p_cDataPoint ) throws SQLException, CZEPMySQLManagerException, MalformedURLException, IOException
     {
         //ds first check if we already have an entry for this image (no double URLs allowed)
-        final PreparedStatement cStatementCheckDataPoint = m_cMySQLConnection.prepareStatement( "SELECT `id_datapoint` from `datapoints` WHERE (`url`) = (?) LIMIT 1" );
+        final PreparedStatement cStatementCheckDataPoint = m_cMySQLConnection.prepareStatement( "SELECT `id_datapoint` from `datapoints` WHERE `url` = ( ? ) LIMIT 1" );
         cStatementCheckDataPoint.setString( 1, p_cDataPoint.getURL( ).toString( ) );
         
         //ds if there is no entry yet
         if( !cStatementCheckDataPoint.executeQuery( ).next( ) )
         {
             //ds add the datapoint to the SQL database
-            final PreparedStatement cStatementInsertDataPoint = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `datapoints` (`url`, `title`, `type`) VALUE (?,?,?)" );
+            final PreparedStatement cStatementInsertDataPoint = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `datapoints` " +
+            		                                                                                 "(`url`, `title`, `type`, `likes`, `dislikes`, `count_comments`, `count_tags`, " +
+            		                                                                                 "`is_photo`, `text_amount` ) VALUE ( ?, ?, ?, ?, ?, ?, ?, ?, ? )" );
             cStatementInsertDataPoint.setString( 1, p_cDataPoint.getURL( ).toString( ) );
             cStatementInsertDataPoint.setString( 2, p_cDataPoint.getTitle( ) );
             cStatementInsertDataPoint.setString( 3, p_cDataPoint.getType( ) );
+            cStatementInsertDataPoint.setInt( 4, p_cDataPoint.getLikes( ) );
+            cStatementInsertDataPoint.setInt( 5, p_cDataPoint.getDislikes( ) );
+            cStatementInsertDataPoint.setInt( 6, p_cDataPoint.getCountComments( ) );
+            cStatementInsertDataPoint.setInt( 7, p_cDataPoint.getCountTags( ) );
+            cStatementInsertDataPoint.setBoolean( 8, p_cDataPoint.isPhoto( ) );
+            cStatementInsertDataPoint.setDouble( 9, p_cDataPoint.getTextAmount( ) );
             cStatementInsertDataPoint.executeUpdate( );          
             
             //ds obtain the datapoint id
@@ -92,7 +103,7 @@ public final class CMySQLManager
             final int iID_DataPoint = cResultDataPoint.getInt( "id_datapoint" );
             
             //ds add the image file to the database
-            final PreparedStatement cStatementInsertImage = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `images` (`id_datapoint`, `file`) VALUE (?,?)" );
+            final PreparedStatement cStatementInsertImage = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `images` ( `id_datapoint`, `data_binary` ) VALUE ( ?, ? )" );
             cStatementInsertImage.setInt( 1, iID_DataPoint );
             cStatementInsertImage.setBlob( 2, new URL( p_cDataPoint.getURL( ).toString( ) ).openStream( ) );
             cStatementInsertImage.executeUpdate( );
@@ -101,29 +112,44 @@ public final class CMySQLManager
             for( String strTag : p_cDataPoint.getTags( ) )
             {
             	//ds for each tag check if we already have an entry in the features map
-                final PreparedStatement cStatementCheckFeatures = m_cMySQLConnection.prepareStatement( "SELECT `id_feature` from `features` WHERE (`value`) = (?) LIMIT 1" );
+                final PreparedStatement cStatementCheckFeatures = m_cMySQLConnection.prepareStatement( "SELECT * from `features` WHERE `value` = ( ? ) LIMIT 1" );
                 cStatementCheckFeatures.setString( 1, strTag );
                 
+                //ds get the result
+                final ResultSet cResultFeature = cStatementCheckFeatures.executeQuery( );
+                
                 //ds if there is no entry yet
-                if( !cStatementCheckFeatures.executeQuery( ).next( ) )
+                if( !cResultFeature.next( ) )
                 {
                 	//ds add the tag to the features table
-                    final PreparedStatement cStatementInsertFeature = m_cMySQLConnection.prepareStatement( "INSERT INTO `features` (`value`) VALUE (?)" );
+                    final PreparedStatement cStatementInsertFeature = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `features` ( `value`, `frequency` ) VALUE ( ?, ? )" );
                     cStatementInsertFeature.setString( 1, strTag );
+                    cStatementInsertFeature.setInt( 2, 1 );
                     cStatementInsertFeature.executeUpdate( );
+                }
+                else
+                {
+                	//ds increment the frequency counter - first obtain it
+                    final int iCounter = cResultFeature.getInt( "frequency" );
+                    
+                    //ds insert the incremented counter
+                    final PreparedStatement cStatementInsertFeature = m_cMySQLConnection.prepareStatement( "UPDATE `features` SET `frequency` = ( ? ) WHERE `value` = ( ? )" );
+                    cStatementInsertFeature.setInt( 1, iCounter+1 );
+                    cStatementInsertFeature.setString( 2, strTag );
+                    cStatementInsertFeature.executeUpdate( );                    
                 }
                 
                 //ds now we have to create the linkage between features and datapoints over the patterns table - execute the query for the tag again
-                final ResultSet cResultFeature = cStatementCheckFeatures.executeQuery( );
+                final ResultSet cResultFeatureID = cStatementCheckFeatures.executeQuery( );
                 
-                //ds this must work
-                if( !cResultFeature.next( ) ){ throw new CZEPMySQLManagerException( "from Feature: could not establish datapoint - feature linkage" ); }
+                //ds this must work now
+                if( !cResultFeatureID.next( ) ){ throw new CZEPMySQLManagerException( "from Feature: could not establish datapoint - feature linkage" ); }
                 
                 //ds obtain the feature id
-                final int iID_Feature = cResultFeature.getInt( "id_feature" );
+                final int iID_Feature = cResultFeatureID.getInt( "id_feature" );
                 
                 //ds establish the linkage between id_datapoint and id_feature
-                final PreparedStatement cStatementInsertLinkage = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `mappings` (`id_datapoint`, `id_feature`) VALUE (?,?)" );
+                final PreparedStatement cStatementInsertLinkage = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `mappings` ( `id_datapoint`, `id_feature` ) VALUE ( ?, ? )" );
                 cStatementInsertLinkage.setInt( 1, iID_DataPoint );
                 cStatementInsertLinkage.setInt( 2, iID_Feature );
                 cStatementInsertLinkage.executeUpdate( );
@@ -160,15 +186,21 @@ public final class CMySQLManager
         	final int iID_DataPoint = cResultSetDataPoint.getInt( "id_datapoint" );
         	
             //ds extract the data separately (for readability)
-            final String strURL   = cResultSetDataPoint.getString( "url" );
-            final String strTitle = cResultSetDataPoint.getString( "title" );
-            final String strType  = cResultSetDataPoint.getString( "type" );
+            final String strURL      = cResultSetDataPoint.getString( "url" );
+            final String strTitle    = cResultSetDataPoint.getString( "title" );
+            final String strType     = cResultSetDataPoint.getString( "type" );
+            final int iLikes         = cResultSetDataPoint.getInt( "likes" );
+            final int iDislikes      = cResultSetDataPoint.getInt( "dislikes" );
+            final int iCountComments = cResultSetDataPoint.getInt( "count_comments" );
+            final int iCountTags     = cResultSetDataPoint.getInt( "count_tags" );
+            final boolean bIsPhoto   = cResultSetDataPoint.getBoolean( "is_photo" );
+            final double dTextAmount = cResultSetDataPoint.getDouble( "text_amount" );
             
             //ds tag vector to be filled
             Vector< String > vecTags = new Vector< String >( );
             
             //ds now retrieve the feature information (tags)
-            final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE (`id_datapoint`) = (?)" );
+            final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE `id_datapoint` = ( ? )" );
             cRetrieveMapping.setInt( 1, iID_DataPoint );
             
             //ds get the mapping
@@ -181,7 +213,7 @@ public final class CMySQLManager
             	final int iID_Feature = cResultSetMapping.getInt( "id_feature" );
             	
             	//ds get actual feature
-                final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `features` WHERE (`id_feature`) = (?) LIMIT 1" );
+                final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `features` WHERE `id_feature` = ( ? ) LIMIT 1" );
                 cRetrieveTag.setInt( 1, iID_Feature );
                 
                 //ds get the feature
@@ -199,7 +231,7 @@ public final class CMySQLManager
             }
             
             //ds add the datapoint to the map
-            mapDataset.put( iID_DataPoint, new CDataPoint( iID_DataPoint, new URL( strURL ), strTitle, strType, vecTags ) );
+            mapDataset.put( iID_DataPoint, new CDataPoint( iID_DataPoint, new URL( strURL ), strTitle, strType, iLikes, iDislikes, iCountComments, iCountTags, bIsPhoto, dTextAmount, vecTags ) );
             
             //ds update
             ++iNumberOfDataPoints;
@@ -217,6 +249,42 @@ public final class CMySQLManager
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) ratio : " + ( float )iNumberOfFeatures/iNumberOfDataPoints );
         
         return mapDataset;
+    }
+    
+    //ds single image acces
+    public final BufferedImage getImage( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
+    {
+    	try
+    	{
+	        //ds grab the image row
+	        final PreparedStatement cRetrieveImage = m_cMySQLConnection.prepareStatement( "SELECT * FROM `images` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
+	        cRetrieveImage.setInt( 1, p_cDataPoint.getID( ) );
+	        
+	        //ds execute the statement
+	        final ResultSet cResultSetImage = cRetrieveImage.executeQuery( );
+	        
+	        //ds if we got something
+	        if( cResultSetImage.next( ) )
+	        {
+	        	//ds get the image
+	        	final BufferedImage cImage = ImageIO.read( cResultSetImage.getBlob( "data_binary" ).getBinaryStream( ) );
+	        	
+	        	//ds return
+	        	return cImage;
+	        }
+	        else
+	        {
+	        	throw new CZEPMySQLManagerException( "could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
+	        }
+    	}
+    	catch( SQLException e )
+    	{
+        	throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );    		
+    	}
+    	catch( IOException e )
+    	{
+        	throw new CZEPMySQLManagerException( "IOException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );    		
+    	}
     }
     
     /*ds updater function

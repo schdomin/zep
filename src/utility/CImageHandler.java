@@ -10,6 +10,7 @@ import org.imgscalr.Scalr;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfDouble;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfPoint;
@@ -35,7 +36,7 @@ public abstract class CImageHandler
         final double dRatioWidth  = ( double ) iWidthImage/p_iWindowWidth;
         final double dRatioHeight = ( double ) iHeightImage/p_iWindowHeight;
         
-        //ds dont scale for ratios above 3.0
+        //ds don't scale for ratios above 3.0
          if( 3.0 < dRatioWidth || 3.0 < dRatioHeight ){ return p_cImage; }
         
         //ds check which side we have to scale
@@ -144,12 +145,12 @@ public abstract class CImageHandler
     }
     
     //ds check if the image is a photograph or a drawing
-    public final static boolean isAPhotograph( final BufferedImage p_cImage ) throws CZEPConversionException
+    public final static boolean isAPhotographRGB( final BufferedImage p_cImage ) throws CZEPConversionException
     {
     	//ds matrices for histogram
     	List< Mat > lstImageRGB = new ArrayList< Mat >( );
     	
-    	//ds allocate image instances (all in grayscale)
+    	//ds allocate image instance
     	lstImageRGB.add( _getMatFromBufferedImage( p_cImage ) );
     	
     	//ds histogram configuration
@@ -254,6 +255,101 @@ public abstract class CImageHandler
     	return ( dAverageMaximum < 0.1 );
     }
     
+    //ds check if the image is a photograph or a drawing
+    public final static boolean isAPhotographGray( final BufferedImage p_cImage ) throws CZEPConversionException
+    {
+    	//ds allocate image instances
+    	Mat matImageRGB       = _getMatFromBufferedImage( p_cImage );
+    	Mat matImageGrayScale = Mat.zeros( matImageRGB.size( ), CvType.CV_8UC1 );
+    	//Mat MatImageGradient  = new Mat( matImageRGB.size( ), CvType.CV_32FC1 );
+    	
+        //ds set the grayscale representation
+        Imgproc.cvtColor( matImageRGB, matImageGrayScale, Imgproc.COLOR_RGB2GRAY );
+        
+        //ds compute the gradient image
+        //Imgproc.Sobel( matImageGrayScale, MatImageGradient, CvType.CV_32F, 1, 1 );
+        
+        //ds info
+        //Highgui.imwrite( "grayscale.jpg", matImageGrayScale );
+    	//Highgui.imwrite( "gradient.jpg", MatImageGradient );
+        
+    	//ds matrices for histogram
+    	final List< Mat > lstImageGray = new ArrayList< Mat >( );
+    	
+    	//ds get a list
+    	lstImageGray.add( matImageGrayScale );
+    	
+    	//ds histogram configuration
+    	final int iHistSize        = 256;
+    	final MatOfInt arrChannels = new MatOfInt( 0 );
+    	final MatOfInt arrHistSize = new MatOfInt( iHistSize );
+    	final MatOfFloat arrRanges = new MatOfFloat( 0, 255 );
+    	
+    	//ds raw histogram data
+    	Mat matHistogramGrayRaw = new Mat( );
+    	
+    	//ds get a histogram from the image
+    	Imgproc.calcHist( lstImageGray, arrChannels, new Mat( ), matHistogramGrayRaw, arrHistSize, arrRanges, true );
+    	
+    	//ds histogram drawing height
+    	//final int iHistHeight = 600;
+    	
+    	//ds pixel width per bin
+    	//final int iBinWidth = 3;
+    	
+    	//ds compute width
+    	//final int iHistWidth = iHistSize*3;
+
+    	//ds check for the max value
+    	double dMaxValue = 0;
+    	
+    	//ds plot values
+    	for( int i = 0; i < iHistSize; ++i )
+    	{
+    		//ds get current entries
+    		final double dCurrentEntries = matHistogramGrayRaw.get( i, 0 )[0];
+    		
+    		//ds check if bigger and update
+    		if( dMaxValue < dCurrentEntries ){ dMaxValue = dCurrentEntries; }
+    	}
+    	
+    	//ds get std dev and mean
+    	MatOfDouble matMean   = new MatOfDouble( 0.0 );
+    	MatOfDouble matStdDev = new MatOfDouble( 0.0 );
+    	Core.meanStdDev( matHistogramGrayRaw, matMean, matStdDev );
+    	
+    	//ds set statistical values
+    	final double dTotalEntries = Core.sumElems( matHistogramGrayRaw ).val[0];
+    	double dMean               = matMean.get( 0, 0 )[0];
+    	double dStdDev             = matStdDev.get( 0, 0 )[0];
+    	
+    	//ds normalize all values
+    	dMaxValue = dMaxValue/dTotalEntries;
+    	dMean     = dMean/dTotalEntries;
+    	dStdDev   = dStdDev/dTotalEntries;
+    	
+    	/*ds allocate the final image for drawing
+    	Mat matHistogramGrayDraw = new Mat( iHistHeight, iHistWidth, CvType.CV_8UC1, new Scalar( 0, 0, 0 ) );
+
+    	//ds normalize the result
+    	Core.normalize( matHistogramGrayRaw, matHistogramGrayRaw, 0, matHistogramGrayDraw.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
+
+    	//ds raw for each channel
+    	for( int i = 1; i < iHistSize; ++i )
+    	{
+    		//ds the curve
+    		Core.line( matHistogramGrayDraw,
+    				   new Point( iBinWidth*( i-1 ), iHistHeight - Math.round( matHistogramGrayRaw.get( i-1,0 )[0] ) ),
+                       new Point( iBinWidth*( i )  , iHistHeight - Math.round( matHistogramGrayRaw.get( i, 0 )[0] ) ),
+                       new Scalar( 255, 0, 0 ), 2 );
+    	}
+    	
+    	//ds save the image
+    	Highgui.imwrite( "histogram.jpg", matHistogramGrayDraw );*/
+    	
+    	//ds return
+    	return ( dMaxValue < 0.1 );
+    }
     
     //ds convert from BufferedImage to Mat
     private final static Mat _getMatFromBufferedImage( final BufferedImage p_cImage ) throws CZEPConversionException

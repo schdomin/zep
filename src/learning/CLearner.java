@@ -79,14 +79,14 @@ public final class CLearner
     }
     
     //ds simple getter - does not change the request counter for an update cycle
-    public CDataPoint getCurrentImage( )
+    public CDataPoint getCurrentDataPoint( )
     {
         //ds this call is safe since the image id gets only manipulated internally
         return new CDataPoint( m_mapDataset.get( m_iCurrentImageID ) );
     }
     
     //ds returns the next image
-    public CDataPoint getNextImage( final ELearner p_eFlag ) throws CZEPEoIException
+    public CDataPoint getNextDataPoint( final ELearner p_eFlag ) throws CZEPEoIException
     {
         //ds save the flag for the last image
         m_mapLabels.put( m_iCurrentImageID, p_eFlag );
@@ -131,7 +131,7 @@ public final class CLearner
     }
     
     //ds returns the previous image - does not change the request counter for an update cycle
-    public CDataPoint getPrevImage( ) throws CZEPnpIException
+    public CDataPoint getPreviousDataPoint( ) throws CZEPnpIException
     {
     	//ds check if there is a previous image available (means at least 2 images picked by GUI)
     	if( 1 < m_vecImageIDsPicked.size( ) )

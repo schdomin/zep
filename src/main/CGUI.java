@@ -14,7 +14,6 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 
-import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
@@ -30,13 +29,13 @@ import javax.swing.border.Border;
 
 //ds custom imports
 import learning.CLearner;
-import exceptions.CZEPConversionException;
 import exceptions.CZEPEoIException;
 import exceptions.CZEPMySQLManagerException;
 import exceptions.CZEPnpIException;
 import utility.CDataPoint;
 import utility.CImageHandler;
 import utility.CLogger;
+import utility.CMySQLManager;
 
 public final class CGUI implements ActionListener, KeyListener
 {
@@ -75,15 +74,21 @@ public final class CGUI implements ActionListener, KeyListener
     //ds interpreter - all calls go over this object
     private final CLearner m_cLearner;
     
+    //ds MySQL calls
+    private final CMySQLManager m_cMySQLManager;
+    
     //ds window information
     private final int m_iImageDisplayWidth;
     private final int m_iImageDisplayHeight;
     
     //ds constructor
-    public CGUI( final CLearner p_cLearner, final int p_iWindowWidth, final int p_iWindowHeight )
+    public CGUI( final CLearner p_cLearner, final CMySQLManager p_cMySQLManager, final int p_iWindowWidth, final int p_iWindowHeight )
     {        
         //ds set the learner
         m_cLearner = p_cLearner;
+        
+        //ds and MySQL manager
+        m_cMySQLManager = p_cMySQLManager;
         
         //ds set the window properties
         m_iImageDisplayWidth  = p_iWindowWidth-200;
@@ -137,7 +142,7 @@ public final class CGUI implements ActionListener, KeyListener
     	m_cLearner.launch( );
     	
         //ds try to get the image for first display
-        _displayImage( m_cLearner.getNextImage( CLearner.ELearner.IDC ) );
+        _displayImage( m_cLearner.getNextDataPoint( CLearner.ELearner.IDC ) );
         
         //ds dispose loading screen
         cDialog.removeAll( );
@@ -168,16 +173,16 @@ public final class CGUI implements ActionListener, KeyListener
         try
         {
             //ds determine event (big if/else tree)
-            if(      cSource == m_cButtonLike ){ _displayImage( m_cLearner.getNextImage( CLearner.ELearner.LIKE ) ); }
-            else if( cSource == m_cButtonDislike ){ _displayImage( m_cLearner.getNextImage( CLearner.ELearner.DISLIKE ) ); }
-            else if( cSource == m_cButtonPrevious ){ _displayImage( m_cLearner.getPrevImage( ) ); }
+            if(      cSource == m_cButtonLike ){ _displayImage( m_cLearner.getNextDataPoint( CLearner.ELearner.LIKE ) ); }
+            else if( cSource == m_cButtonDislike ){ _displayImage( m_cLearner.getNextDataPoint( CLearner.ELearner.DISLIKE ) ); }
+            else if( cSource == m_cButtonPrevious ){ _displayImage( m_cLearner.getPreviousDataPoint( ) ); }
             else if( cSource == m_cButtonReset )
             {
                 //ds reset the learning process
                 m_cLearner.reset( );
                 
                 //ds get a new image
-                _displayImage( m_cLearner.getNextImage( CLearner.ELearner.IDC ) );
+                _displayImage( m_cLearner.getNextDataPoint( CLearner.ELearner.IDC ) );
             }
         }
         catch( CZEPEoIException e )
@@ -189,10 +194,17 @@ public final class CGUI implements ActionListener, KeyListener
         }
         catch( CZEPnpIException e )
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPException: " + e.getMessage( ) );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPnpIException: " + e.getMessage( ) );
             
             //ds no previous image available
             JOptionPane.showMessageDialog( m_cFrame, "No previous image available - please use Like/Dislike to classify the first image" );         
+        }
+        catch( CZEPMySQLManagerException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPMySQLManagerException: " + e.getMessage( ) );
+            
+            //ds no previous image available
+            JOptionPane.showMessageDialog( m_cFrame, "Could not load image from MySQL database" );         
         }
     }
     
@@ -218,46 +230,38 @@ public final class CGUI implements ActionListener, KeyListener
     }
     
     //ds update GUI with new image
-    private void _displayImage( final CDataPoint p_cDataPoint )
+    private void _displayImage( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
     {
-        try
-        {
-            //ds get datapoint type
-            final String strType = p_cDataPoint.getType( );
-            
-            //ds see if we got not a gif - image processing possible
-            if( !strType.contains( "gif" ) )
-            {
-            	//ds get the image
-            	final BufferedImage cImage = ImageIO.read( p_cDataPoint.getURL( ) );
-            	
-                //ds get text percentage
-            	m_cTextFieldTextPercent.setText( String.format( "%3.2f", CImageHandler.getTextPercentageCanny( cImage ) ) );
-            	
-            	//ds check if photograph
-            	m_cTextFieldIsPhoto.setText( Boolean.toString( CImageHandler.isAPhotograph( cImage ) ) );
-            	
-                //ds set the image to the GUI field (resized)
-                m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( cImage, m_iImageDisplayWidth, m_iImageDisplayHeight ) ) );
-            }
-            else
-            {
-                //ds load the image directly
-                m_cLabelImage.setIcon( new ImageIcon( p_cDataPoint.getURL( ) ) );                
-            }
-            
-            //ds update image info
-            m_cTextFieldTitle.setText( p_cDataPoint.getTitle( ) );
-            m_cTextFieldURL.setText( p_cDataPoint.getURL( ).toString( ) );
-            m_cTextFieldTags.setText( p_cDataPoint.getTags( ).toString( ) );
-            
-            //ds side panel
-            m_cTextFieldImageID.setText( Integer.toString( p_cDataPoint.getLinkedID( ) ) );
-            m_cTextFieldVisits.setText( Integer.toString( m_cLearner.getNumberOfVisits( ) ) );
-            m_cTextFieldType.setText( p_cDataPoint.getType( ) );
-            m_cTextFieldDatasetSize.setText( Integer.toString( m_cLearner.getDatasetSize( ) ) );
-            m_cTextFieldLikes.setText( Integer.toString( m_cLearner.getNumberOfLikes( ) ) );
-        }
+        //try
+        //{
+    	
+    	//ds get the image from MySQL
+    	final BufferedImage cImage = m_cMySQLManager.getImage( p_cDataPoint );
+    	
+        //ds get text percentage
+    	//CImageHandler.getTextPercentageCanny( cImage );
+    	
+    	//ds check if photograph
+    	//CImageHandler.isAPhotographGray( cImage );
+    	
+        //ds set the image to the GUI field (resized)
+        m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( cImage, m_iImageDisplayWidth, m_iImageDisplayHeight ) ) );
+        
+        //ds update image info
+        m_cTextFieldTitle.setText( p_cDataPoint.getTitle( ) );
+        m_cTextFieldURL.setText( p_cDataPoint.getURL( ).toString( ) );
+        m_cTextFieldTags.setText( p_cDataPoint.getTags( ).toString( ) );
+        
+        //ds side panel
+        m_cTextFieldImageID.setText( Integer.toString( p_cDataPoint.getID( ) ) );
+        m_cTextFieldVisits.setText( Integer.toString( m_cLearner.getNumberOfVisits( ) ) );
+        m_cTextFieldType.setText( p_cDataPoint.getType( ) );
+        m_cTextFieldDatasetSize.setText( Integer.toString( m_cLearner.getDatasetSize( ) ) );
+        m_cTextFieldLikes.setText( Integer.toString( m_cLearner.getNumberOfLikes( ) ) );
+        m_cTextFieldTextPercent.setText( String.format( "%3.2f", p_cDataPoint.getTextAmount( ) ) );
+        m_cTextFieldIsPhoto.setText( Boolean.toString( p_cDataPoint.isPhoto( ) ) );
+        
+        /*}
         catch( IOException e )
         {
             System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(_displayImage) IOException: " + e.getMessage( ) );
@@ -271,7 +275,7 @@ public final class CGUI implements ActionListener, KeyListener
             
             //ds TODO improve exception handling - right now there will just be no image displayed
             JOptionPane.showMessageDialog( m_cFrame, "Could not convert URL:\n" + p_cDataPoint.getURL( ) );
-        }
+        }*/
     }
     
     //ds component setup
@@ -308,7 +312,7 @@ public final class CGUI implements ActionListener, KeyListener
         m_cTextFieldType.setEditable( false );
         m_cTextFieldDatasetSize.setEditable( false );
         m_cTextFieldTextPercent.setEditable( false );
-        m_cTextFieldIsPhoto.setEditable( false ); 
+        m_cTextFieldIsPhoto.setEditable( false );
         
         //ds add the sidebar panels
         final JPanel cPanelImageID     = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
@@ -320,6 +324,10 @@ public final class CGUI implements ActionListener, KeyListener
         final JPanel cPanelTextPercent = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelIsPhoto     = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         
+        //ds structural side bar
+        final JPanel cPanelProperties = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
+        final JPanel cPanelLearning   = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
+        
         //ds add labels and textfield to each panel
         cPanelImageID.add( new JLabel( "MySQL ID: " ) );         cPanelImageID.add( m_cTextFieldImageID );
         cPanelLikes.add( new JLabel( "Total Likes: " ) );        cPanelLikes.add( m_cTextFieldLikes );
@@ -330,6 +338,9 @@ public final class CGUI implements ActionListener, KeyListener
         cPanelTextPercent.add( new JLabel( "Text Amount: " ) );  cPanelTextPercent.add( m_cTextFieldTextPercent );
         cPanelIsPhoto.add( new JLabel( "Photograph: " ) );       cPanelIsPhoto.add( m_cTextFieldIsPhoto );
         
+        cPanelProperties.add( new JLabel( "Properties:        " ) );
+        cPanelLearning.add(   new JLabel( "Learning:          " ) );
+        
         //ds set maximum size to align vertically
         cPanelImageID.setMaximumSize( cPanelImageID.getPreferredSize( ) );
         cPanelLikes.setMaximumSize( cPanelLikes.getPreferredSize( ) );
@@ -338,7 +349,10 @@ public final class CGUI implements ActionListener, KeyListener
         cPanelType.setMaximumSize( cPanelType.getPreferredSize( ) );
         cPanelDatasetSize.setMaximumSize( cPanelDatasetSize.getPreferredSize( ) );
         cPanelTextPercent.setMaximumSize( cPanelTextPercent.getPreferredSize( ) );
-        cPanelIsPhoto.setMaximumSize( cPanelTextPercent.getPreferredSize( ) );
+        cPanelIsPhoto.setMaximumSize( cPanelIsPhoto.getPreferredSize( ) );
+        
+        cPanelProperties.setMaximumSize( cPanelProperties.getPreferredSize( ) );
+        cPanelLearning.setMaximumSize( cPanelLearning.getPreferredSize( ) );
         
         //ds align right horizontally
         cPanelImageID.setAlignmentX( Component.RIGHT_ALIGNMENT );
@@ -349,6 +363,9 @@ public final class CGUI implements ActionListener, KeyListener
         cPanelDatasetSize.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelTextPercent.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelIsPhoto.setAlignmentX( Component.RIGHT_ALIGNMENT );
+        
+        cPanelProperties.setAlignmentX( Component.RIGHT_ALIGNMENT );
+        cPanelLearning.setAlignmentX( Component.RIGHT_ALIGNMENT );
         
         //ds north panels
         final JPanel cPanelTitle = new JPanel( new FlowLayout( FlowLayout.LEFT ) );
@@ -367,15 +384,20 @@ public final class CGUI implements ActionListener, KeyListener
         m_cPanelNorth.add( cPanelURL );
         m_cPanelNorth.add( cPanelTags );
         
+        //ds side panel
         m_cPanelEast.setLayout( new BoxLayout( m_cPanelEast, BoxLayout.Y_AXIS ) );
+        m_cPanelEast.add( cPanelProperties );
         m_cPanelEast.add( cPanelImageID );
         m_cPanelEast.add( cPanelType );
-        m_cPanelEast.add( cPanelDatasetSize );
         m_cPanelEast.add( cPanelVisits );
         m_cPanelEast.add( cPanelLikes );
-        m_cPanelEast.add( cPanelConfidence );
         m_cPanelEast.add( cPanelTextPercent );
         m_cPanelEast.add( cPanelIsPhoto );
+        
+        m_cPanelEast.add( cPanelLearning );
+        m_cPanelEast.add( cPanelDatasetSize );
+        m_cPanelEast.add( cPanelVisits );
+        m_cPanelEast.add( cPanelConfidence );
         
         m_cPanelSouth.add( m_cButtonReset );
         m_cPanelSouth.add( m_cButtonDislike );

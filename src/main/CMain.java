@@ -80,7 +80,7 @@ public final class CMain
         }
         
         //ds allocate a gui instance with its own learner
-        final CGUI cGUI = new CGUI( new CLearner( cMySQLManager ), m_iWindowWidth, m_iWindowHeight );
+        final CGUI cGUI = new CGUI( new CLearner( cMySQLManager ), cMySQLManager, m_iWindowWidth, m_iWindowHeight );
         
         //ds launch GUI and learner (indirect)
         try
