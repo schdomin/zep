@@ -70,6 +70,8 @@ public final class CGUI implements ActionListener, KeyListener
     private final JTextField m_cTextFieldDatasetSize = new JTextField( 3 );
     private final JTextField m_cTextFieldTextPercent = new JTextField( 3 );
     private final JTextField m_cTextFieldIsPhoto     = new JTextField( 3 );
+    private final JTextField m_cTextFieldComments    = new JTextField( 3 );
+    private final JTextField m_cTextFieldTagsCount   = new JTextField( 3 );
     
     //ds interpreter - all calls go over this object
     private final CLearner m_cLearner;
@@ -260,6 +262,8 @@ public final class CGUI implements ActionListener, KeyListener
         m_cTextFieldLikes.setText( Integer.toString( m_cLearner.getNumberOfLikes( ) ) );
         m_cTextFieldTextPercent.setText( String.format( "%3.2f", p_cDataPoint.getTextAmount( ) ) );
         m_cTextFieldIsPhoto.setText( Boolean.toString( p_cDataPoint.isPhoto( ) ) );
+        m_cTextFieldComments.setText( Integer.toString( p_cDataPoint.getCountComments( ) ) );
+        m_cTextFieldTagsCount.setText( Integer.toString( p_cDataPoint.getCountTags( ) ) );
         
         /*}
         catch( IOException e )
@@ -313,6 +317,8 @@ public final class CGUI implements ActionListener, KeyListener
         m_cTextFieldDatasetSize.setEditable( false );
         m_cTextFieldTextPercent.setEditable( false );
         m_cTextFieldIsPhoto.setEditable( false );
+        m_cTextFieldComments.setEditable( false );
+        m_cTextFieldTagsCount.setEditable( false );
         
         //ds add the sidebar panels
         final JPanel cPanelImageID     = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
@@ -323,10 +329,13 @@ public final class CGUI implements ActionListener, KeyListener
         final JPanel cPanelDatasetSize = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelTextPercent = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelIsPhoto     = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
+        final JPanel cPanelComments    = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
+        final JPanel cPanelTagsCount   = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         
         //ds structural side bar
         final JPanel cPanelProperties = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelLearning   = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
+        final JPanel cPanelWhitespace = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         
         //ds add labels and textfield to each panel
         cPanelImageID.add( new JLabel( "MySQL ID: " ) );         cPanelImageID.add( m_cTextFieldImageID );
@@ -337,9 +346,12 @@ public final class CGUI implements ActionListener, KeyListener
         cPanelDatasetSize.add( new JLabel( "Dataset Size: " ) ); cPanelDatasetSize.add( m_cTextFieldDatasetSize );
         cPanelTextPercent.add( new JLabel( "Text Amount: " ) );  cPanelTextPercent.add( m_cTextFieldTextPercent );
         cPanelIsPhoto.add( new JLabel( "Photograph: " ) );       cPanelIsPhoto.add( m_cTextFieldIsPhoto );
+        cPanelComments.add( new JLabel( "Comments: " ) );      cPanelComments.add( m_cTextFieldComments );
+        cPanelTagsCount.add( new JLabel( "Tags Count: " ) );      cPanelTagsCount.add( m_cTextFieldTagsCount );
         
-        cPanelProperties.add( new JLabel( "Properties:        " ) );
-        cPanelLearning.add(   new JLabel( "Learning:          " ) );
+        cPanelProperties.add( new JLabel( "Properties                    " ) );
+        cPanelLearning.add(   new JLabel( "Learning                       " ) );
+        cPanelWhitespace.add( new JLabel( "" ) );
         
         //ds set maximum size to align vertically
         cPanelImageID.setMaximumSize( cPanelImageID.getPreferredSize( ) );
@@ -350,9 +362,12 @@ public final class CGUI implements ActionListener, KeyListener
         cPanelDatasetSize.setMaximumSize( cPanelDatasetSize.getPreferredSize( ) );
         cPanelTextPercent.setMaximumSize( cPanelTextPercent.getPreferredSize( ) );
         cPanelIsPhoto.setMaximumSize( cPanelIsPhoto.getPreferredSize( ) );
+        cPanelComments.setMaximumSize( cPanelComments.getPreferredSize( ) );
+        cPanelTagsCount.setMaximumSize( cPanelTagsCount.getPreferredSize( ) );
         
         cPanelProperties.setMaximumSize( cPanelProperties.getPreferredSize( ) );
         cPanelLearning.setMaximumSize( cPanelLearning.getPreferredSize( ) );
+        cPanelWhitespace.setMaximumSize( cPanelWhitespace.getPreferredSize( ) );
         
         //ds align right horizontally
         cPanelImageID.setAlignmentX( Component.RIGHT_ALIGNMENT );
@@ -363,9 +378,15 @@ public final class CGUI implements ActionListener, KeyListener
         cPanelDatasetSize.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelTextPercent.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelIsPhoto.setAlignmentX( Component.RIGHT_ALIGNMENT );
+        cPanelComments.setAlignmentX( Component.RIGHT_ALIGNMENT );
+        cPanelTagsCount.setAlignmentX( Component.RIGHT_ALIGNMENT );
         
         cPanelProperties.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelLearning.setAlignmentX( Component.RIGHT_ALIGNMENT );
+        cPanelWhitespace.setAlignmentX( Component.RIGHT_ALIGNMENT );
+        
+        cPanelProperties.setBorder( BorderFactory.createLineBorder( Color.blue ) );
+        cPanelLearning.setBorder( BorderFactory.createLineBorder( Color.blue ) );
         
         //ds north panels
         final JPanel cPanelTitle = new JPanel( new FlowLayout( FlowLayout.LEFT ) );
@@ -389,14 +410,17 @@ public final class CGUI implements ActionListener, KeyListener
         m_cPanelEast.add( cPanelProperties );
         m_cPanelEast.add( cPanelImageID );
         m_cPanelEast.add( cPanelType );
-        m_cPanelEast.add( cPanelVisits );
-        m_cPanelEast.add( cPanelLikes );
         m_cPanelEast.add( cPanelTextPercent );
         m_cPanelEast.add( cPanelIsPhoto );
+        m_cPanelEast.add( cPanelComments );
+        m_cPanelEast.add( cPanelTagsCount );
+        
+        m_cPanelEast.add( cPanelWhitespace );
         
         m_cPanelEast.add( cPanelLearning );
         m_cPanelEast.add( cPanelDatasetSize );
         m_cPanelEast.add( cPanelVisits );
+        m_cPanelEast.add( cPanelLikes );
         m_cPanelEast.add( cPanelConfidence );
         
         m_cPanelSouth.add( m_cButtonReset );

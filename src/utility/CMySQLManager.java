@@ -180,7 +180,7 @@ public final class CMySQLManager
         final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
         
         //ds as long as we have remaining data
-        while( cResultSetDataPoint.next( ) )
+        while( cResultSetDataPoint.next( ) && iNumberOfDataPoints < 10 )
         {   
         	//ds get the ID
         	final int iID_DataPoint = cResultSetDataPoint.getInt( "id_datapoint" );
