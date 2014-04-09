@@ -129,16 +129,16 @@ public abstract class CImageHandler
         	//ds add to total area
         	dTotalTextArea += cTextBox.area( );
         	
-        	//ds compute corner points for the rectangle to draw
+        	/*ds compute corner points for the rectangle to draw
         	final Point cBR = new Point( cTextBox.x, cTextBox.y );
         	final Point cTL = new Point( cTextBox.x+cTextBox.width, cTextBox.y+cTextBox.height );
         
         	//ds and draw it on the input matrix
-        	Core.rectangle( matImageRGB, cBR, cTL, new Scalar( 255, 0, 0 ), 2 );
+        	Core.rectangle( matImageRGB, cBR, cTL, new Scalar( 255, 0, 0 ), 2 );*/
         }
         
         //ds final image
-        Highgui.imwrite( "final.jpg", matImageRGB );
+        //Highgui.imwrite( "final.jpg", matImageRGB );
         
         //ds compute text percentage
         return dTotalTextArea/matImageRGB.total( );
@@ -256,7 +256,7 @@ public abstract class CImageHandler
     }
     
     //ds check if the image is a photograph or a drawing
-    public final static boolean isAPhotographGray( final BufferedImage p_cImage ) throws CZEPConversionException
+    public final static boolean isAPhotographGray( final BufferedImage p_cImage, final double p_dThreshold ) throws CZEPConversionException
     {
     	//ds allocate image instances
     	Mat matImageRGB       = _getMatFromBufferedImage( p_cImage );
@@ -348,7 +348,7 @@ public abstract class CImageHandler
     	Highgui.imwrite( "histogram.jpg", matHistogramGrayDraw );*/
     	
     	//ds return
-    	return ( dMaxValue < 0.1 );
+    	return ( dMaxValue < p_dThreshold );
     }
     
     //ds convert from BufferedImage to Mat

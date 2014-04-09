@@ -217,6 +217,42 @@ public class CCheezcrawler extends Thread
         //ds try to open the current page
         cCurrentPage = Jsoup.connect( p_cURL.toString( ) ).timeout( m_iTimeoutMS ).get( );
         
+        /*ds print the page
+        System.out.println( cCurrentPage );
+        
+        String strRedirectedURL = new String( );
+        
+        Elements cMeta = cCurrentPage.select( "html head meta" );
+        
+        if( cMeta.attr( "http-equiv" ).contains( "REFRESH" ) )
+        {
+        	strRedirectedURL = cMeta.attr( "content" ).split( "=" )[1];
+        }
+        else // if( cCurrentPage.toString( ).contains( "windows.location.href" ) )
+        {
+        	cMeta = cCurrentPage.select( "script" );
+        	
+        	for( Element cScript: cMeta )
+        	{
+        		String strCommand = cScript.data( );
+        		
+                if(! strCommand.isEmpty( ) && strCommand.startsWith( "window.location.href" ) )
+                {
+                    int iStart = strCommand.indexOf( "=" );
+                    int iEnd   = strCommand.indexOf( ";" );
+                    if( 0 < iStart && iEnd > iStart )
+                    {
+                    	strCommand = strCommand.substring( iStart+1, iEnd );
+                    	strCommand = strCommand.replace( "'", "" ).replace( "\"", "" );        
+                    	strRedirectedURL = strCommand.trim( );
+                        break;
+                    }
+                }
+        	}
+        }
+        
+        System.out.println( strRedirectedURL );*/
+        
         //ds get all posts on this page
         final Elements vec_cPosts = cCurrentPage.getElementsByClass( "content-card" );
         
@@ -241,14 +277,19 @@ public class CCheezcrawler extends Thread
                 {
                 	/*ds get the Likes/Dislikes holders
                 	final Element cLikesHolder = ( cCurrentPost.getElementsByClass( "js-vote-up" ).first( ) ).getElementsByClass( "js-vote-count" ).first( );
-                	final Element cDislikesHolder = ( cCurrentPost.getElementsByClass( "js-vote-down" ).first( ) ).getElementsByClass( "js-vote-count" ).first( );
+                	final Element cDislikesHolder = ( cCurrentPost.getElementsByClass( "js-vote-down" ).first( ) ).getElementsByClass( "js-vote-count" ).first( );*/
                 	
-                	//ds TODO extract values from javascript call
+                	//ds comment holder
+                	final Element cCommentsCountHolder = cCurrentPost.getElementsByClass( "js-comment-count" ).first( );
+                	
+                	/*ds TODO extract values from javascript call
                 	final String strLikes    = cLikesHolder.text( );
                 	final String strDislikes = cDislikesHolder.text( );*/
+                	
+                	//ds set the values
                 	final int iLikes    	 = 0;
                 	final int iDislikes      = 0;
-                	final int iCountComments = 0;
+                	final int iCountComments = Integer.valueOf( cCommentsCountHolder.text( ) );
                 	
                 	//ds get the image
                 	final BufferedImage cImage = ImageIO.read( cDownloadPath );
@@ -257,7 +298,7 @@ public class CCheezcrawler extends Thread
                 	final double dTextAmount = CImageHandler.getTextPercentageCanny( cImage );
                 	
                 	//ds check if photograph
-                	final boolean bIsPhoto = CImageHandler.isAPhotographGray( cImage );
+                	final boolean bIsPhoto = CImageHandler.isAPhotographGray( cImage, 0.1 );
                 	
 	                //ds get the tag holder (only one per post)
 	                final Element cTagHolder = cCurrentPost.getElementsByClass( "tags" ).first( );
@@ -309,6 +350,9 @@ public class CCheezcrawler extends Thread
 	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)  Text Amount: " + cDataPoint.getTextAmount( ) );
 	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)      IsPhoto: " + cDataPoint.isPhoto( ) );
 	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)         Type: " + strExtension );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)        Likes: " + cDataPoint.getLikes( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)     Dislikes: " + cDataPoint.getDislikes( ) );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)     Comments: " + cDataPoint.getCountComments( ) );
 	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage)         Tags: " + cDataPoint.getTags( ) );
 	                        }
 	                    }
