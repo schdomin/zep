@@ -50,6 +50,9 @@ public final class CMySQLManager
         //ds setup driver
         Class.forName( m_strMySQLDriver );
         
+        //ds set login timeout
+        DriverManager.setLoginTimeout( 10 );
+        
         //ds establish connection
         m_cMySQLConnection = DriverManager.getConnection( m_strMySQLServerURL, m_strMySQLUsername, m_strMySQLPassword );      
         

@@ -3,8 +3,6 @@ package main;
 import java.net.MalformedURLException;
 import java.sql.SQLException;
 
-import org.opencv.core.Core;
-
 //ds custom imports
 import exceptions.CZEPEoIException;
 import exceptions.CZEPMySQLManagerException;
@@ -48,9 +46,6 @@ public final class CMain
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "|                                          LAUNCH PHASE                                         |" );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
-        
-    	//ds load OpenCV core
-    	System.loadLibrary( Core.NATIVE_LIBRARY_NAME );
         
         //ds allocate the MySQL manager
         final CMySQLManager cMySQLManager = new CMySQLManager( m_strMySQLDriver, m_strMySQLServerURL, m_strMySQLUsername, m_strMySQLPassword );
