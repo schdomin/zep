@@ -16,8 +16,8 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.opencv.core.Core;
 
-import exceptions.CZEPConversionException;
 //ds custom
+import exceptions.CZEPConversionException;
 import exceptions.CZEPMySQLManagerException;
 import utility.CConverter;
 import utility.CDataPoint;
@@ -29,7 +29,6 @@ public class CCheezcrawler extends Thread
 {
     //ds crawling attributes set by configuration file
     final private URL m_cMasterURL;
-    final private int m_iNumberOfPages;
     final private int m_iTimeoutMS;
     final private int m_iLogLevel;
     
@@ -39,22 +38,29 @@ public class CCheezcrawler extends Thread
     private int m_iCurrentNumberOfFeatures      = 0;
     private int m_iCurrentNumberOfImagesToMySQL = 0;
     private int m_iCurrentNumberOfAlreadyMySQL  = 0;
+    private int m_iNumberOfExceptions           = 0;
+    
+    //ds total datapoints to acquire
+    private int m_iTargetNumberOfImages;
     
     //ds simulate human behavior
     final private static Random m_cGenerator = new Random( );
+    
+    //ds query for like/dislikes
+    final String m_strQueryRating = "http://app.cheezburger.com/Rating/Scores?callback=jQuery190005670550150134579_1397320129116&section=3&assetIds=";
     
     //ds mysql manager
     private final CMySQLManager m_cMySQLManager;
     
     //ds constructor
-    public CCheezcrawler( final CMySQLManager p_cMySQLManager, final URL p_cMasterURL, final int p_iNumberOfPages, final int p_iTimeoutMS, final int p_iLogLevel )
+    public CCheezcrawler( final CMySQLManager p_cMySQLManager, final URL p_cMasterURL, final int p_iTargetNumberOfImages, final int p_iTimeoutMS, final int p_iLogLevel )
     {
         //ds assign values
-        m_cMySQLManager  = p_cMySQLManager;
-        m_cMasterURL     = p_cMasterURL;
-        m_iNumberOfPages = p_iNumberOfPages;
-        m_iTimeoutMS     = p_iTimeoutMS;
-        m_iLogLevel      = p_iLogLevel;
+        m_cMySQLManager         = p_cMySQLManager;
+        m_cMasterURL            = p_cMasterURL;
+        m_iTargetNumberOfImages = p_iTargetNumberOfImages;
+        m_iTimeoutMS            = p_iTimeoutMS;
+        m_iLogLevel             = p_iLogLevel;
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(CCheezcrawler) instance allocated" );
     };
@@ -70,7 +76,7 @@ public class CCheezcrawler extends Thread
         
         //ds default configuration parameters: cheezcrawler
         final URL cMasterURL_Cheezcrawler      = new URL( "http://memebase.cheezburger.com/" );
-        final int iNumberOfPages_Cheezcrawler  = 0;
+        final int iNumberOfImages_Cheezcrawler = 100;
         final int iTimeoutMS_Cheezcrawler      = 60000;
         final int iLogLevel_Cheezcrawler       = 0;
         
@@ -106,7 +112,7 @@ public class CCheezcrawler extends Thread
         
         
         //ds allocate a crawler instance
-        final Thread cCrawler = new Thread( new CCheezcrawler( cMySQLManager, cMasterURL_Cheezcrawler, iNumberOfPages_Cheezcrawler, iTimeoutMS_Cheezcrawler, iLogLevel_Cheezcrawler ) );
+        final Thread cCrawler = new Thread( new CCheezcrawler( cMySQLManager, cMasterURL_Cheezcrawler, iNumberOfImages_Cheezcrawler, iTimeoutMS_Cheezcrawler, iLogLevel_Cheezcrawler ) );
         
         //ds start it (blocking)
         cCrawler.run( );
@@ -117,51 +123,39 @@ public class CCheezcrawler extends Thread
     {
         try
         {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) target number of datapoints: " + m_iTargetNumberOfImages );
+            
             //ds crawl frontpage
             _crawlPage( m_cMasterURL );
             
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) crawled first page: " + m_cMasterURL );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) successfully crawled first page: " + m_cMasterURL );
             
-            //ds if we have a finite number of pages to crawl
-            if( 0 != m_iNumberOfPages )
+            //ds current page
+            int iCurrentPage = 2;
+            
+            //ds start infinite loop until target is reached
+            while( !Thread.interrupted( ) && ( m_iTargetNumberOfImages > m_iCurrentNumberOfImagesToMySQL ) )
             {
-                //ds crawl additional pages
-                for( int i = 2; i < m_iNumberOfPages; ++i )
-                {
-                    //ds before crawling on check master
-                    if( Thread.interrupted( ) )
-                    {
-                        System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) crawling terminated by main" );
-                        _printDownloadSummary( );
-                        return;
-                    }
-                    
-                    //ds simply add the page number
-                    _crawlPage( new URL( m_cMasterURL.toString( ) + "page/" + Integer.toString( i ) ) );
-                }
-            }
-            else
-            {
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) starting infinite crawling" );
-                
-                //ds current page
-                int iCurrentPage = 2;
-                
-                //ds start infinite loop
-                while( !Thread.interrupted( ) )
+                try
                 {
                     //ds simply add the page number
                     _crawlPage( new URL( m_cMasterURL.toString( ) + "page/" + Integer.toString( iCurrentPage ) ) );
-                    
-                    //ds increase counter
-                    ++iCurrentPage;
+                }
+                catch( Exception e )
+                {
+                    //ds not fatal
+                    System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) Exception: " + e.getMessage( ) + " - skipping page: " + iCurrentPage );
+                    ++m_iNumberOfExceptions;
                 }
                 
-                //ds we got interrupted
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) crawling terminated by main" );
-                _printDownloadSummary( );
-                return;
+                //ds increase counter
+                ++iCurrentPage;
             }
+            
+            //ds we got interrupted
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) crawling terminated by main" );
+            _printDownloadSummary( );
+            return;
         }
         catch( SQLException e )
         {
@@ -194,10 +188,6 @@ public class CCheezcrawler extends Thread
             _printDownloadSummary( );
             return;
         }
-       
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) download complete" );
-        _printDownloadSummary( );
-        return;
     }
     
     private void _crawlPage( final URL p_cURL ) throws IOException, InterruptedException, SQLException, CZEPConversionException
@@ -210,51 +200,12 @@ public class CCheezcrawler extends Thread
             System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(_crawlPage)   accessing: " + p_cURL );
             System.out.println( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         }
-        
-        //ds allocate a webpage handle
-        final Document cCurrentPage;
-        
-        //ds try to open the current page
-        cCurrentPage = Jsoup.connect( p_cURL.toString( ) ).timeout( m_iTimeoutMS ).get( );
-        
-        /*ds print the page
-        System.out.println( cCurrentPage );
-        
-        String strRedirectedURL = new String( );
-        
-        Elements cMeta = cCurrentPage.select( "html head meta" );
-        
-        if( cMeta.attr( "http-equiv" ).contains( "REFRESH" ) )
-        {
-        	strRedirectedURL = cMeta.attr( "content" ).split( "=" )[1];
-        }
-        else // if( cCurrentPage.toString( ).contains( "windows.location.href" ) )
-        {
-        	cMeta = cCurrentPage.select( "script" );
-        	
-        	for( Element cScript: cMeta )
-        	{
-        		String strCommand = cScript.data( );
-        		
-                if(! strCommand.isEmpty( ) && strCommand.startsWith( "window.location.href" ) )
-                {
-                    int iStart = strCommand.indexOf( "=" );
-                    int iEnd   = strCommand.indexOf( ";" );
-                    if( 0 < iStart && iEnd > iStart )
-                    {
-                    	strCommand = strCommand.substring( iStart+1, iEnd );
-                    	strCommand = strCommand.replace( "'", "" ).replace( "\"", "" );        
-                    	strRedirectedURL = strCommand.trim( );
-                        break;
-                    }
-                }
-        	}
-        }
-        
-        System.out.println( strRedirectedURL );*/
-        
+
+        //ds parse the HTML tree from the current page
+        final Document cCurrentPage = Jsoup.connect( p_cURL.toString( ) ).timeout( m_iTimeoutMS ).get( );
+
         //ds get all posts on this page
-        final Elements vec_cPosts = cCurrentPage.getElementsByClass( "content-card" );
+        final Elements vec_cPosts = cCurrentPage.getElementsByClass( "post" );
         
         //ds loop thru all posts
         for( Element cCurrentPost : vec_cPosts )
@@ -272,33 +223,54 @@ public class CCheezcrawler extends Thread
                 //ds get file extension
                 final String strExtension = CConverter.getFileExtensionFromURL( cDownloadPath ).toLowerCase( );
                 
-                //ds only accept jpeg/jpg/jpe
-                if( strExtension.matches( "jpeg" ) || strExtension.matches( "jpg" ) || strExtension.matches( "jpe" ) )
+                //ds only accept jpeg/jpg/jpe/gif
+                if( strExtension.matches( "jpeg" ) || strExtension.matches( "jpg" ) || strExtension.matches( "jpe" ) || strExtension.matches( "gif" ) )
                 {
-                	/*ds get the Likes/Dislikes holders
-                	final Element cLikesHolder = ( cCurrentPost.getElementsByClass( "js-vote-up" ).first( ) ).getElementsByClass( "js-vote-count" ).first( );
-                	final Element cDislikesHolder = ( cCurrentPost.getElementsByClass( "js-vote-down" ).first( ) ).getElementsByClass( "js-vote-count" ).first( );*/
+                    //ds get post number (layout: post-1234..
+                    final String strPostNumber = cCurrentPost.id( ).substring( 5 );
+                    
+                    //ds execute the request
+                    final String strResponse = Jsoup.connect( m_strQueryRating + strPostNumber ).ignoreContentType( true ).timeout( m_iTimeoutMS ).get( ).text( );
+                    
+                    //ds find Wins and Fails - custom parsing
+                    final String strKeyWordWins  = "Wins";
+                    final String strKeyWordFails = "Fails";
+                    final int iPositionWinsStart  = strResponse.indexOf( strKeyWordWins );
+                    final int iPositionWinsEnd    = strResponse.indexOf( ',', iPositionWinsStart );
+                    final int iPositionFailsStart = strResponse.indexOf( strKeyWordFails );
+                    final int iPositionFailsEnd   = strResponse.indexOf( '}', iPositionFailsStart );
+                    
+                    //ds set number strings (+2 because of the ": characters)
+                    final String strLikes    = strResponse.substring( iPositionWinsStart+strKeyWordWins.length( )+2, iPositionWinsEnd );
+                    final String strDislikes = strResponse.substring( iPositionFailsStart+strKeyWordFails.length( )+2, iPositionFailsEnd );
+
+                	//ds get comment count
+                	final String strCountComments = ( cCurrentPost.getElementsByClass( "js-comment-count" ).first( ) ).text( );
                 	
-                	//ds comment holder
-                	final Element cCommentsCountHolder = cCurrentPost.getElementsByClass( "js-comment-count" ).first( );
+                	//ds default values
+                	int iLikes    	   = 0;
+                	int iDislikes      = 0;
+                	int iCountComments = 0;
                 	
-                	/*ds TODO extract values from javascript call
-                	final String strLikes    = cLikesHolder.text( );
-                	final String strDislikes = cDislikesHolder.text( );*/
-                	
-                	//ds set the values
-                	final int iLikes    	 = 0;
-                	final int iDislikes      = 0;
-                	final int iCountComments = Integer.valueOf( cCommentsCountHolder.text( ) );
+                	try
+                	{
+                        //ds try to extract the integer values
+                	    iLikes         = Integer.valueOf( strLikes );
+                	    iDislikes      = Integer.valueOf( strDislikes );
+                	    iCountComments = Integer.valueOf( strCountComments );
+                	}
+                	catch( NumberFormatException e )
+                	{
+                	    //ds not fatal
+                        System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage) NumberFormatException: " + e.getMessage( ) + " parsing error - defaulted to value: 0" );                	    
+                	}
                 	
                 	//ds get the image
                 	final BufferedImage cImage = ImageIO.read( cDownloadPath );
                 	
-                	//ds compute text area of image
-                	final double dTextAmount = CImageHandler.getTextPercentageCanny( cImage );
-                	
-                	//ds check if photograph
-                	final boolean bIsPhoto = CImageHandler.isAPhotographGray( cImage, 0.1 );
+                	//ds OpenCV operations - defaulted for gifs
+                	double dTextAmount = 0.0;   if( !strExtension.matches( "gif" ) ){ dTextAmount = CImageHandler.getTextPercentageCanny( cImage ); }
+                	boolean bIsPhoto   = false; if( !strExtension.matches( "gif" ) ){ bIsPhoto    = CImageHandler.isAPhotographGray( cImage, 0.1 ); }
                 	
 	                //ds get the tag holder (only one per post)
 	                final Element cTagHolder = cCurrentPost.getElementsByClass( "tags" ).first( );
@@ -389,6 +361,7 @@ public class CCheezcrawler extends Thread
         System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) images already in MySQL: " + m_iCurrentNumberOfAlreadyMySQL );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run)          total features: " + m_iCurrentNumberOfFeatures );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run)     features per sample: " + String.format( "%.3g", ( double )m_iCurrentNumberOfFeatures/m_iCurrentNumberOfImages ) );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run)        total exceptions: " + m_iNumberOfExceptions );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) terminated" );        
     }
