@@ -76,7 +76,7 @@ public class CCheezcrawler extends Thread
         
         //ds default configuration parameters: cheezcrawler
         final URL cMasterURL_Cheezcrawler      = new URL( "http://memebase.cheezburger.com/" );
-        final int iNumberOfImages_Cheezcrawler = 100;
+        final int iNumberOfImages_Cheezcrawler = 10000;
         final int iTimeoutMS_Cheezcrawler      = 60000;
         final int iLogLevel_Cheezcrawler       = 0;
         
