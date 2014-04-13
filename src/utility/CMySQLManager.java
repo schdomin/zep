@@ -1,9 +1,11 @@
 package utility;
 
 import java.awt.image.BufferedImage;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -14,6 +16,7 @@ import java.util.Map;
 import java.util.Vector;
 
 import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 
 //ds custom imports
 import exceptions.CZEPMySQLManagerException;
@@ -30,12 +33,18 @@ public final class CMySQLManager
     private Connection m_cMySQLConnection;
     
     //ds fixed values (for now)
-    final private int m_iMySQLTimeout = 10000;
+    private final int m_iMySQLTimeout = 10000;
+    
+    //ds log file writers
+    private String m_strLogFileFeatureGrowth = "features-";
     
     //ds constructor
     public CMySQLManager( final String p_strMySQLDriver, final String p_strMySQLServerURL, final String p_strMySQLUsername, final String p_strMySQLPassword )
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(CMySQLManager) CMySQLManager instance allocated" );
+        
+        //ds fix the logfile name
+        m_strLogFileFeatureGrowth += CLogger.getFileStamp( ) + ".csv";
         
         //ds set values
         m_strMySQLDriver    = p_strMySQLDriver;
@@ -68,7 +77,7 @@ public final class CMySQLManager
     public boolean isEmpty( ) throws SQLException, CZEPMySQLManagerException
     {
         //ds max id is zero for empty table
-        return ( 0 == _getMaxIDFromTable( ) );
+        return ( 0 == _getMaxIDFromTable( "id_datapoint", "datapoints" ) );
     }
     
     //ds insert datapoint
@@ -111,6 +120,9 @@ public final class CMySQLManager
             cStatementInsertImage.setBlob( 2, new URL( p_cDataPoint.getURL( ).toString( ) ).openStream( ) );
             cStatementInsertImage.executeUpdate( );
             
+            //ds logging last feature id
+            int iID_FeatureCurrent = _getMaxIDFromTable( "id_feature", "features" );
+            
             //ds then add the tags to the features table
             for( String strTag : p_cDataPoint.getTags( ) )
             {
@@ -129,6 +141,9 @@ public final class CMySQLManager
                     cStatementInsertFeature.setString( 1, strTag );
                     cStatementInsertFeature.setInt( 2, 1 );
                     cStatementInsertFeature.executeUpdate( );
+                    
+                    //ds increment feature counter
+                    ++iID_FeatureCurrent;
                 }
                 else
                 {
@@ -157,6 +172,18 @@ public final class CMySQLManager
                 cStatementInsertLinkage.setInt( 2, iID_Feature );
                 cStatementInsertLinkage.executeUpdate( );
             }
+            
+            //ds get current total feature number (simply the size of the mappings table)
+            final int iCurrentTotalFeatures = _getMaxIDFromTable( "id_mapping", "mappings" );
+            
+            //ds open writer - locally because we want the data written in case the process dies unexpectedly
+            FileWriter writer = new FileWriter( m_strLogFileFeatureGrowth, true );
+            
+            //ds append entry
+            writer.append( iID_DataPoint + "," + iID_FeatureCurrent + "," + iCurrentTotalFeatures + "\n" );
+            
+            //ds close writer
+            writer.close( );
         }
         else
         {
@@ -165,7 +192,7 @@ public final class CMySQLManager
     }
     
     //ds access function
-    public Map< Integer, CDataPoint > getDataset( ) throws SQLException, MalformedURLException
+    public Map< Integer, CDataPoint > getDataset( final int p_iMaximumNumberOfDataPoints ) throws SQLException, MalformedURLException
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) received fetch request - start downloading .." );
         
@@ -183,7 +210,7 @@ public final class CMySQLManager
         final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
         
         //ds as long as we have remaining data
-        while( cResultSetDataPoint.next( ) && iNumberOfDataPoints < 10 )
+        while( cResultSetDataPoint.next( ) && iNumberOfDataPoints < p_iMaximumNumberOfDataPoints )
         {   
         	//ds get the ID
         	final int iID_DataPoint = cResultSetDataPoint.getInt( "id_datapoint" );
@@ -212,25 +239,25 @@ public final class CMySQLManager
             //ds for all the mappings
             while( cResultSetMapping.next( ) )
             {
-            	//ds get feature id
-            	final int iID_Feature = cResultSetMapping.getInt( "id_feature" );
-            	
-            	//ds get actual feature
+                //ds get feature id
+                final int iID_Feature = cResultSetMapping.getInt( "id_feature" );
+           
+                //ds get actual feature
                 final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `features` WHERE `id_feature` = ( ? ) LIMIT 1" );
                 cRetrieveTag.setInt( 1, iID_Feature );
                 
                 //ds get the feature
                 final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
                 
-            	//ds if exists
-            	if( cResultSetTag.next( ) )
-            	{
-            		//ds add the current tag
-            		vecTags.add( cResultSetTag.getString( "value" ) );
-            		
-            		//ds update counter
-            		++iNumberOfFeatures;
-            	}
+                //ds if exists
+                if( cResultSetTag.next( ) )
+                {
+                    //ds add the current tag
+                    vecTags.add( cResultSetTag.getString( "value" ) );
+           
+                    //ds update counter
+                    ++iNumberOfFeatures;
+                }
             }
             
             //ds add the datapoint to the map
@@ -254,40 +281,75 @@ public final class CMySQLManager
         return mapDataset;
     }
     
-    //ds single image acces
-    public final BufferedImage getImage( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
+    //ds regular image access
+    public final BufferedImage getBufferedImage( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
     {
-    	try
-    	{
-	        //ds grab the image row
-	        final PreparedStatement cRetrieveImage = m_cMySQLConnection.prepareStatement( "SELECT * FROM `images` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
-	        cRetrieveImage.setInt( 1, p_cDataPoint.getID( ) );
-	        
-	        //ds execute the statement
-	        final ResultSet cResultSetImage = cRetrieveImage.executeQuery( );
-	        
-	        //ds if we got something
-	        if( cResultSetImage.next( ) )
-	        {
-	        	//ds get the image
-	        	final BufferedImage cImage = ImageIO.read( cResultSetImage.getBlob( "data_binary" ).getBinaryStream( ) );
-	        	
-	        	//ds return
-	        	return cImage;
-	        }
-	        else
-	        {
-	        	throw new CZEPMySQLManagerException( "could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
-	        }
-    	}
-    	catch( SQLException e )
-    	{
-        	throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );    		
-    	}
-    	catch( IOException e )
-    	{
-        	throw new CZEPMySQLManagerException( "IOException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );    		
-    	}
+        try
+        {
+            //ds grab the image row
+            final PreparedStatement cRetrieveImage = m_cMySQLConnection.prepareStatement( "SELECT * FROM `images` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
+            cRetrieveImage.setInt( 1, p_cDataPoint.getID( ) );
+
+            //ds execute the statement
+            final ResultSet cResultSetImage = cRetrieveImage.executeQuery( );
+
+            //ds if we got something
+            if( cResultSetImage.next( ) )
+            {
+                //ds get the image
+                final BufferedImage cImage = ImageIO.read( cResultSetImage.getBlob( "data_binary" ).getBinaryStream( ) );
+
+                //ds return
+                return cImage;
+            }
+            else
+            {
+                throw new CZEPMySQLManagerException( "could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
+            }
+        }
+        catch( SQLException e )
+        {
+            throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
+        }
+        catch( IOException e )
+        {
+            throw new CZEPMySQLManagerException( "IOException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
+        }
+    }
+
+    //ds gif image access
+    public final ImageIcon getImageIcon( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
+    {
+        try
+        {
+            //ds grab the image row
+            final PreparedStatement cRetrieveImage = m_cMySQLConnection.prepareStatement( "SELECT * FROM `images` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
+            cRetrieveImage.setInt( 1, p_cDataPoint.getID( ) );
+        
+            //ds execute the statement
+            final ResultSet cResultSetImage = cRetrieveImage.executeQuery( );
+        
+            //ds if we got something
+            if( cResultSetImage.next( ) )
+            {
+                //ds get the blob from mysql
+                final Blob cBlob =  cResultSetImage.getBlob( "data_binary" );
+        
+                //ds read the file into a image icon
+                final ImageIcon cImage = new ImageIcon( cBlob.getBytes( 1, ( int )cBlob.length( ) ) );
+        
+                //ds return it
+                return cImage;
+            }
+            else
+            {
+                throw new CZEPMySQLManagerException( "could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
+            }
+        }
+        catch( SQLException e )
+        {
+            throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );    		
+        }
     }
     
     /*ds updater function
@@ -370,10 +432,10 @@ public final class CMySQLManager
         }
     }*/
     
-    private final int _getMaxIDFromTable( ) throws SQLException, CZEPMySQLManagerException
+    private final int _getMaxIDFromTable( final String p_strKeyID, final String p_strTable ) throws SQLException, CZEPMySQLManagerException
     {
         //ds determine the current max id in the database
-        final PreparedStatement cStatementCheck = m_cMySQLConnection.prepareStatement( "SELECT MAX(`id_datapoint`) FROM `datapoints`" );
+        final PreparedStatement cStatementCheck = m_cMySQLConnection.prepareStatement( "SELECT MAX(`"+p_strKeyID+"`) FROM `"+p_strTable+"`" );
         final ResultSet cResultSetCheck         = cStatementCheck.executeQuery( );
         
         //ds default
@@ -383,7 +445,7 @@ public final class CMySQLManager
         while( cResultSetCheck.next( ) )
         {
             //ds set the max id
-            iMaxID = cResultSetCheck.getInt( "MAX(`id_datapoint`)" );
+            iMaxID = cResultSetCheck.getInt( "MAX(`"+p_strKeyID+"`)" );
         }
         
         //ds internal SQL error if still -1

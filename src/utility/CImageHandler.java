@@ -16,10 +16,7 @@ import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Rect;
 import org.opencv.core.Size;
-import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.core.Point;
-import org.opencv.core.Scalar;
 
 //ds custom
 import exceptions.CZEPConversionException;
@@ -172,21 +169,19 @@ public abstract class CImageHandler
     	Imgproc.calcHist( lstImageRGB, arrChannelsB, new Mat( ), matHistogramB, arrHistSize, arrRanges, true );
     	
     	//ds histogram dimensions
-    	final int iHistWidth  = 800;
-    	final int iHistHeight = 600;
+    	//final int iHistWidth  = 800;
+    	//final int iHistHeight = 600;
     	
     	//ds width per bin
-    	final int iBinWidth  = ( int ) Math.round( ( double ) iHistWidth/iHistSize );
+    	//final int iBinWidth  = ( int ) Math.round( ( double ) iHistWidth/iHistSize );
 
     	//ds allocate the final image
-    	Mat matHistogramRGB = new Mat( iHistHeight, iHistWidth, CvType.CV_8UC3, new Scalar( 0, 0, 0 ) );
+    	//Mat matHistogramRGB = new Mat( iHistHeight, iHistWidth, CvType.CV_8UC3, new Scalar( 0, 0, 0 ) );
     	
-    	System.out.println( matHistogramR );
-    	
-    	//ds count all entries
-    	int iNumberOfEntriesR = 0;
-    	int iNumberOfEntriesG = 0;
-    	int iNumberOfEntriesB = 0;
+    	//ds get total entries per color channel
+        final double dTotalEntriesR = Core.sumElems( matHistogramR ).val[0];
+        final double dTotalEntriesG = Core.sumElems( matHistogramG ).val[0];
+        final double dTotalEntriesB = Core.sumElems( matHistogramB ).val[0];
     	
     	//ds check for a max value
     	double dMaxValueR = 0;
@@ -201,36 +196,27 @@ public abstract class CImageHandler
     		final double dCurrentEntriesG = matHistogramG.get( i, 0 )[0];
     		final double dCurrentEntriesB = matHistogramB.get( i, 0 )[0];
     		
-    		//System.out.println( "R: " + i + " - " + dCurrentEntries );
-    		
     		//ds check if bigger and update if so
     		if( dMaxValueR < dCurrentEntriesR ){ dMaxValueR = dCurrentEntriesR; }
     		if( dMaxValueG < dCurrentEntriesG ){ dMaxValueG = dCurrentEntriesG; }
     		if( dMaxValueB < dCurrentEntriesB ){ dMaxValueB = dCurrentEntriesB; }
-    		
-    		//ds increase entries
-    		iNumberOfEntriesR += dCurrentEntriesR;
-    		iNumberOfEntriesG += dCurrentEntriesG;
-    		iNumberOfEntriesB += dCurrentEntriesB;
     	}
     	
-    	System.out.println( "total 1: " + lstImageRGB.get( 0 ).width( )*lstImageRGB.get( 0 ).height( ) );
-    	System.out.println( "total R: " + iNumberOfEntriesR );
-    	System.out.println( "total G: " + iNumberOfEntriesG );
-    	System.out.println( "total B: " + iNumberOfEntriesB );
-    	System.out.println( "  max R: " + dMaxValueR/iNumberOfEntriesR );
-    	System.out.println( "  max G: " + dMaxValueG/iNumberOfEntriesG );
-    	System.out.println( "  max B: " + dMaxValueB/iNumberOfEntriesB );
+    	System.out.println( "max R: " + dMaxValueR/dTotalEntriesR );
+    	System.out.println( "max G: " + dMaxValueG/dTotalEntriesG );
+    	System.out.println( "max B: " + dMaxValueB/dTotalEntriesB );
     	
     	//ds compute average maximum value
-    	final double dAverageMaximum = ( dMaxValueR/iNumberOfEntriesR + dMaxValueG/iNumberOfEntriesG + dMaxValueB/iNumberOfEntriesB )/3;
+    	final double dAverageMaximum = ( dMaxValueR/dTotalEntriesR + dMaxValueG/dTotalEntriesG + dMaxValueB/dTotalEntriesB )/3;
+    	
+    	System.out.println( "max Total: " + dAverageMaximum );
 
     	//ds normalize the result
-    	Core.normalize( matHistogramR, matHistogramR, 0, matHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
-    	Core.normalize( matHistogramG, matHistogramG, 0, matHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
-    	Core.normalize( matHistogramB, matHistogramB, 0, matHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
+    	//Core.normalize( matHistogramR, matHistogramR, 0, matHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
+    	//Core.normalize( matHistogramG, matHistogramG, 0, matHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
+    	//Core.normalize( matHistogramB, matHistogramB, 0, matHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
 
-    	//ds raw for each channel
+    	/*ds raw for each channel
     	for( int i = 1; i < iHistSize; ++i )
     	{
     		//ds the curve
@@ -249,7 +235,7 @@ public abstract class CImageHandler
     	}
     	
     	//ds save the image
-    	Highgui.imwrite( "histogram.jpg", matHistogramRGB );
+    	Highgui.imwrite( "histogram.jpg", matHistogramRGB );*/
     	
     	//ds return
     	return ( dAverageMaximum < 0.1 );

@@ -41,7 +41,8 @@ public class CCheezcrawler extends Thread
     private int m_iNumberOfExceptions           = 0;
     
     //ds total datapoints to acquire
-    private int m_iTargetNumberOfImages;
+    final private int m_iTargetNumberOfImages;
+    final private int m_iMaximumPageNumber;
     
     //ds simulate human behavior
     final private static Random m_cGenerator = new Random( );
@@ -53,12 +54,13 @@ public class CCheezcrawler extends Thread
     private final CMySQLManager m_cMySQLManager;
     
     //ds constructor
-    public CCheezcrawler( final CMySQLManager p_cMySQLManager, final URL p_cMasterURL, final int p_iTargetNumberOfImages, final int p_iTimeoutMS, final int p_iLogLevel )
+    public CCheezcrawler( final CMySQLManager p_cMySQLManager, final URL p_cMasterURL, final int p_iTargetNumberOfImages, final int p_iMaximumPageNumber, final int p_iTimeoutMS, final int p_iLogLevel )
     {
         //ds assign values
         m_cMySQLManager         = p_cMySQLManager;
         m_cMasterURL            = p_cMasterURL;
         m_iTargetNumberOfImages = p_iTargetNumberOfImages;
+        m_iMaximumPageNumber    = p_iMaximumPageNumber;
         m_iTimeoutMS            = p_iTimeoutMS;
         m_iLogLevel             = p_iLogLevel;
         
@@ -77,8 +79,9 @@ public class CCheezcrawler extends Thread
         //ds default configuration parameters: cheezcrawler
         final URL cMasterURL_Cheezcrawler      = new URL( "http://memebase.cheezburger.com/" );
         final int iNumberOfImages_Cheezcrawler = 10000;
+        final int iMaximumPage_Cheezcrawler    = 4332;
         final int iTimeoutMS_Cheezcrawler      = 60000;
-        final int iLogLevel_Cheezcrawler       = 0;
+        final int iLogLevel_Cheezcrawler       = 2;
         
     	//ds load OpenCV core
     	System.loadLibrary( Core.NATIVE_LIBRARY_NAME );
@@ -109,10 +112,9 @@ public class CCheezcrawler extends Thread
             System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(main) aborted" );
             return;            
         }
-        
-        
+
         //ds allocate a crawler instance
-        final Thread cCrawler = new Thread( new CCheezcrawler( cMySQLManager, cMasterURL_Cheezcrawler, iNumberOfImages_Cheezcrawler, iTimeoutMS_Cheezcrawler, iLogLevel_Cheezcrawler ) );
+        final Thread cCrawler = new Thread( new CCheezcrawler( cMySQLManager, cMasterURL_Cheezcrawler, iNumberOfImages_Cheezcrawler, iMaximumPage_Cheezcrawler, iTimeoutMS_Cheezcrawler, iLogLevel_Cheezcrawler ) );
         
         //ds start it (blocking)
         cCrawler.run( );
@@ -128,13 +130,11 @@ public class CCheezcrawler extends Thread
             //ds crawl frontpage
             _crawlPage( m_cMasterURL );
             
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) successfully crawled first page: " + m_cMasterURL );
-            
             //ds current page
             int iCurrentPage = 2;
             
             //ds start infinite loop until target is reached
-            while( !Thread.interrupted( ) && ( m_iTargetNumberOfImages > m_iCurrentNumberOfImagesToMySQL ) )
+            while( !Thread.interrupted( ) && ( m_iTargetNumberOfImages > m_iCurrentNumberOfImagesToMySQL ) && ( m_iMaximumPageNumber > iCurrentPage ) )
             {
                 try
                 {
@@ -146,6 +146,16 @@ public class CCheezcrawler extends Thread
                     //ds not fatal
                     System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) Exception: " + e.getMessage( ) + " - skipping page: " + iCurrentPage );
                     ++m_iNumberOfExceptions;
+                    
+                    //ds take a break
+                    sleep( 60000+m_cGenerator.nextInt( 500 ) );
+                }
+                
+                //ds log all 10 pages
+                if( 0 == iCurrentPage%10 )
+                {
+                    //ds info
+                    System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) crawled pages: " + iCurrentPage + " added points: " + m_iCurrentNumberOfImagesToMySQL );
                 }
                 
                 //ds increase counter
@@ -311,7 +321,7 @@ public class CCheezcrawler extends Thread
 	                        //ds info
 	                        if( 1 >= m_iLogLevel )
 	                        {
-	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage) added new image (" + m_iCurrentNumberOfImages + ")" );
+	                            System.out.println( "[" + CLogger.getStamp( ) + "]<CMainCheezcrawler>(_crawlPage) added new image (" + m_iCurrentNumberOfImages + ") page: " + p_cURL.toString( ) );
 	                        }
 	                        
 	                        //ds detailed info

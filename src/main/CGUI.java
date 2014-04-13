@@ -1,6 +1,5 @@
 package main;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.sql.SQLException;
 import java.awt.BorderLayout;
@@ -8,11 +7,11 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.awt.image.BufferedImage;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -64,6 +63,7 @@ public final class CGUI implements ActionListener, KeyListener
     private final JTextField m_cTextFieldTags        = new JTextField( 60 );
     private final JTextField m_cTextFieldImageID     = new JTextField( 3 );
     private final JTextField m_cTextFieldLikes       = new JTextField( 3 );
+    private final JTextField m_cTextFieldDislikes    = new JTextField( 3 );
     private final JTextField m_cTextFieldVisits      = new JTextField( 3 );
     private final JTextField m_cTextFieldConfidence  = new JTextField( 3 );
     private final JTextField m_cTextFieldType        = new JTextField( 3 );
@@ -72,6 +72,9 @@ public final class CGUI implements ActionListener, KeyListener
     private final JTextField m_cTextFieldIsPhoto     = new JTextField( 3 );
     private final JTextField m_cTextFieldComments    = new JTextField( 3 );
     private final JTextField m_cTextFieldTagsCount   = new JTextField( 3 );
+    
+    //ds fonts
+    Font m_cFontTitle = new Font( m_cTextFieldTitle.getFont( ).getName( ), Font.BOLD, 18 );
     
     //ds interpreter - all calls go over this object
     private final CLearner m_cLearner;
@@ -94,7 +97,7 @@ public final class CGUI implements ActionListener, KeyListener
         
         //ds set the window properties
         m_iImageDisplayWidth  = p_iWindowWidth-200;
-        m_iImageDisplayHeight = p_iWindowHeight-175;
+        m_iImageDisplayHeight = p_iWindowHeight-200;
         
         //ds configure the frame
         m_cFrame.setSize( p_iWindowWidth, p_iWindowHeight );
@@ -234,20 +237,20 @@ public final class CGUI implements ActionListener, KeyListener
     //ds update GUI with new image
     private void _displayImage( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
     {
-        //try
-        //{
+    	//ds get the extension
+    	final String strExtension = p_cDataPoint.getType( );
     	
-    	//ds get the image from MySQL
-    	final BufferedImage cImage = m_cMySQLManager.getImage( p_cDataPoint );
-    	
-        //ds get text percentage
-    	//CImageHandler.getTextPercentageCanny( cImage );
-    	
-    	//ds check if photograph
-    	//CImageHandler.isAPhotographGray( cImage );
-    	
-        //ds set the image to the GUI field (resized)
-        m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( cImage, m_iImageDisplayWidth, m_iImageDisplayHeight ) ) );
+    	//ds if we got a gif we take the image as is
+    	if( strExtension.matches( "gif" ) )
+    	{
+    		//ds set the icon
+    		m_cLabelImage.setIcon( m_cMySQLManager.getImageIcon( p_cDataPoint ) );
+    	}
+    	else
+    	{
+    		//ds set the image to the GUI field (resized)
+    		m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( m_cMySQLManager.getBufferedImage( p_cDataPoint ), m_iImageDisplayWidth, m_iImageDisplayHeight ) ) );
+    	}
         
         //ds update image info
         m_cTextFieldTitle.setText( p_cDataPoint.getTitle( ) );
@@ -259,27 +262,12 @@ public final class CGUI implements ActionListener, KeyListener
         m_cTextFieldVisits.setText( Integer.toString( m_cLearner.getNumberOfVisits( ) ) );
         m_cTextFieldType.setText( p_cDataPoint.getType( ) );
         m_cTextFieldDatasetSize.setText( Integer.toString( m_cLearner.getDatasetSize( ) ) );
-        m_cTextFieldLikes.setText( Integer.toString( m_cLearner.getNumberOfLikes( ) ) );
+        m_cTextFieldLikes.setText( Integer.toString( p_cDataPoint.getLikes( ) ) );
+        m_cTextFieldDislikes.setText( Integer.toString( p_cDataPoint.getDislikes( ) ) );
         m_cTextFieldTextPercent.setText( String.format( "%3.2f", p_cDataPoint.getTextAmount( ) ) );
         m_cTextFieldIsPhoto.setText( Boolean.toString( p_cDataPoint.isPhoto( ) ) );
         m_cTextFieldComments.setText( Integer.toString( p_cDataPoint.getCountComments( ) ) );
         m_cTextFieldTagsCount.setText( Integer.toString( p_cDataPoint.getCountTags( ) ) );
-        
-        /*}
-        catch( IOException e )
-        {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(_displayImage) IOException: " + e.getMessage( ) );
-            
-            //ds TODO improve exception handling - right now there will just be no image displayed
-            JOptionPane.showMessageDialog( m_cFrame, "Could not display URL:\n" + p_cDataPoint.getURL( ) );
-        }
-        catch( CZEPConversionException e )
-        {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(_displayImage) CZEPConversionException: " + e.getMessage( ) );
-            
-            //ds TODO improve exception handling - right now there will just be no image displayed
-            JOptionPane.showMessageDialog( m_cFrame, "Could not convert URL:\n" + p_cDataPoint.getURL( ) );
-        }*/
     }
     
     //ds component setup
@@ -307,10 +295,12 @@ public final class CGUI implements ActionListener, KeyListener
         
         //ds textfields
         m_cTextFieldTitle.setEditable( false );
+        m_cTextFieldTitle.setFont( m_cFontTitle );
         m_cTextFieldURL.setEditable( false );
         m_cTextFieldTags.setEditable( false );
         m_cTextFieldImageID.setEditable( false );
         m_cTextFieldLikes.setEditable( false );
+        m_cTextFieldDislikes.setEditable( false );
         m_cTextFieldVisits.setEditable( false );
         m_cTextFieldConfidence.setEditable( false );
         m_cTextFieldType.setEditable( false );
@@ -323,6 +313,7 @@ public final class CGUI implements ActionListener, KeyListener
         //ds add the sidebar panels
         final JPanel cPanelImageID     = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelLikes       = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
+        final JPanel cPanelDislikes    = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelVisits      = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelConfidence  = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelType        = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
@@ -339,15 +330,16 @@ public final class CGUI implements ActionListener, KeyListener
         
         //ds add labels and textfield to each panel
         cPanelImageID.add( new JLabel( "MySQL ID: " ) );         cPanelImageID.add( m_cTextFieldImageID );
-        cPanelLikes.add( new JLabel( "Total Likes: " ) );        cPanelLikes.add( m_cTextFieldLikes );
+        cPanelLikes.add( new JLabel( "Likes: " ) );              cPanelLikes.add( m_cTextFieldLikes );
+        cPanelDislikes.add( new JLabel( "Dislikes: " ) );        cPanelDislikes.add( m_cTextFieldDislikes );
         cPanelVisits.add( new JLabel( "Visited Images: " ) );    cPanelVisits.add( m_cTextFieldVisits );
         cPanelConfidence.add( new JLabel( "Confidence: " ) );    cPanelConfidence.add( m_cTextFieldConfidence );
         cPanelType.add( new JLabel( "Type: " ) );                cPanelType.add( m_cTextFieldType );
         cPanelDatasetSize.add( new JLabel( "Dataset Size: " ) ); cPanelDatasetSize.add( m_cTextFieldDatasetSize );
         cPanelTextPercent.add( new JLabel( "Text Amount: " ) );  cPanelTextPercent.add( m_cTextFieldTextPercent );
         cPanelIsPhoto.add( new JLabel( "Photograph: " ) );       cPanelIsPhoto.add( m_cTextFieldIsPhoto );
-        cPanelComments.add( new JLabel( "Comments: " ) );      cPanelComments.add( m_cTextFieldComments );
-        cPanelTagsCount.add( new JLabel( "Tags Count: " ) );      cPanelTagsCount.add( m_cTextFieldTagsCount );
+        cPanelComments.add( new JLabel( "Comments: " ) );        cPanelComments.add( m_cTextFieldComments );
+        cPanelTagsCount.add( new JLabel( "Tags Count: " ) );     cPanelTagsCount.add( m_cTextFieldTagsCount );
         
         cPanelProperties.add( new JLabel( "Properties                    " ) );
         cPanelLearning.add(   new JLabel( "Learning                       " ) );
@@ -356,6 +348,7 @@ public final class CGUI implements ActionListener, KeyListener
         //ds set maximum size to align vertically
         cPanelImageID.setMaximumSize( cPanelImageID.getPreferredSize( ) );
         cPanelLikes.setMaximumSize( cPanelLikes.getPreferredSize( ) );
+        cPanelDislikes.setMaximumSize( cPanelDislikes.getPreferredSize( ) );
         cPanelVisits.setMaximumSize( cPanelVisits.getPreferredSize( ) );
         cPanelConfidence.setMaximumSize( cPanelConfidence.getPreferredSize( ) );
         cPanelType.setMaximumSize( cPanelType.getPreferredSize( ) );
@@ -372,6 +365,7 @@ public final class CGUI implements ActionListener, KeyListener
         //ds align right horizontally
         cPanelImageID.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelLikes.setAlignmentX( Component.RIGHT_ALIGNMENT );
+        cPanelDislikes.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelVisits.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelConfidence.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelType.setAlignmentX( Component.RIGHT_ALIGNMENT );
@@ -392,6 +386,7 @@ public final class CGUI implements ActionListener, KeyListener
         final JPanel cPanelTitle = new JPanel( new FlowLayout( FlowLayout.LEFT ) );
         final JPanel cPanelURL   = new JPanel( new FlowLayout( FlowLayout.LEFT ) );
         final JPanel cPanelTags  = new JPanel( new FlowLayout( FlowLayout.LEFT ) );
+        //final JPanel cPanelFlowWhitespace = new JPanel( new FlowLayout( FlowLayout.LEFT ) );
         
         //ds connect
         cPanelTitle.add( new JLabel( " Title: " ) ); cPanelTitle.add( m_cTextFieldTitle );
@@ -401,9 +396,10 @@ public final class CGUI implements ActionListener, KeyListener
         //ds setup the main panels
         m_cPanelNorth.setLayout( new BoxLayout( m_cPanelNorth, BoxLayout.Y_AXIS ) );
         m_cPanelNorth.setAlignmentX( Component.LEFT_ALIGNMENT );
-        m_cPanelNorth.add( cPanelTitle );
         m_cPanelNorth.add( cPanelURL );
         m_cPanelNorth.add( cPanelTags );
+        //m_cPanelNorth.add( cPanelFlowWhitespace );
+        m_cPanelNorth.add( cPanelTitle );
         
         //ds side panel
         m_cPanelEast.setLayout( new BoxLayout( m_cPanelEast, BoxLayout.Y_AXIS ) );
@@ -412,6 +408,8 @@ public final class CGUI implements ActionListener, KeyListener
         m_cPanelEast.add( cPanelType );
         m_cPanelEast.add( cPanelTextPercent );
         m_cPanelEast.add( cPanelIsPhoto );
+        m_cPanelEast.add( cPanelLikes );
+        m_cPanelEast.add( cPanelDislikes );
         m_cPanelEast.add( cPanelComments );
         m_cPanelEast.add( cPanelTagsCount );
         
@@ -420,7 +418,6 @@ public final class CGUI implements ActionListener, KeyListener
         m_cPanelEast.add( cPanelLearning );
         m_cPanelEast.add( cPanelDatasetSize );
         m_cPanelEast.add( cPanelVisits );
-        m_cPanelEast.add( cPanelLikes );
         m_cPanelEast.add( cPanelConfidence );
         
         m_cPanelSouth.add( m_cButtonReset );

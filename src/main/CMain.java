@@ -16,7 +16,7 @@ public final class CMain
     private static final String m_strConfigFileName = "config.txt";
     
     //ds default configuration parameters: gui 
-    private static int m_iWindowWidth         = 1400;
+    private static int m_iWindowWidth         = 1200;
     private static int m_iWindowHeight        = 800;
     
     //ds default configuration parameters: mysql

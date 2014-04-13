@@ -71,7 +71,7 @@ public final class CLearner
         else
         {
         	//ds obtain the complete dataset from the database
-        	m_mapDataset = m_cMySQLManager.getDataset( );
+        	m_mapDataset = m_cMySQLManager.getDataset( 100 );
         	
         	//ds initialize the available indexes
         	m_vecImageIDsAvailable.addAll( CIndexer.getIndexVector( 1, m_mapDataset.size( ) ) );
