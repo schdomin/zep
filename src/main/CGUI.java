@@ -26,9 +26,11 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.border.Border;
 
+import learning.CLearnerBayes;
 //ds custom imports
-import learning.CLearner;
+//import learning.CLearnerRandom;
 import exceptions.CZEPEoIException;
+import exceptions.CZEPLearnerException;
 import exceptions.CZEPMySQLManagerException;
 import exceptions.CZEPnpIException;
 import utility.CDataPoint;
@@ -72,22 +74,27 @@ public final class CGUI implements ActionListener, KeyListener
     private final JTextField m_cTextFieldIsPhoto     = new JTextField( 3 );
     private final JTextField m_cTextFieldComments    = new JTextField( 3 );
     private final JTextField m_cTextFieldTagsCount   = new JTextField( 3 );
+    private final JTextField m_cTextFieldTotalLikes  = new JTextField( 3 );
     
     //ds fonts
     Font m_cFontTitle = new Font( m_cTextFieldTitle.getFont( ).getName( ), Font.BOLD, 18 );
     
     //ds interpreter - all calls go over this object
-    private final CLearner m_cLearner;
+    //private final CLearnerRandom m_cLearner;
+    private final CLearnerBayes m_cLearner;
     
     //ds MySQL calls
     private final CMySQLManager m_cMySQLManager;
+    
+    //ds currently active datapoint
+    private CDataPoint m_cCurrentDataPoint = null;
     
     //ds window information
     private final int m_iImageDisplayWidth;
     private final int m_iImageDisplayHeight;
     
     //ds constructor
-    public CGUI( final CLearner p_cLearner, final CMySQLManager p_cMySQLManager, final int p_iWindowWidth, final int p_iWindowHeight )
+    public CGUI( final CLearnerBayes p_cLearner, final CMySQLManager p_cMySQLManager, final int p_iWindowWidth, final int p_iWindowHeight )
     {        
         //ds set the learner
         m_cLearner = p_cLearner;
@@ -127,7 +134,7 @@ public final class CGUI implements ActionListener, KeyListener
         m_cFrame.add( m_cPanelWest  , BorderLayout.WEST );
         m_cFrame.add( m_cPanelCImage, BorderLayout.CENTER );
         
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(CGUI) CGUI instance allocated" );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(CGUI) Instance allocated" );
     }
     
     //ds enable display
@@ -147,7 +154,7 @@ public final class CGUI implements ActionListener, KeyListener
     	m_cLearner.launch( );
     	
         //ds try to get the image for first display
-        _displayImage( m_cLearner.getNextDataPoint( CLearner.ELearner.IDC ) );
+        _displayImage( m_cLearner.getFirstDataPoint( ) );
         
         //ds dispose loading screen
         cDialog.removeAll( );
@@ -178,8 +185,8 @@ public final class CGUI implements ActionListener, KeyListener
         try
         {
             //ds determine event (big if/else tree)
-            if(      cSource == m_cButtonLike ){ _displayImage( m_cLearner.getNextDataPoint( CLearner.ELearner.LIKE ) ); }
-            else if( cSource == m_cButtonDislike ){ _displayImage( m_cLearner.getNextDataPoint( CLearner.ELearner.DISLIKE ) ); }
+            if(      cSource == m_cButtonLike ){ _displayImage( m_cLearner.getNextDataPoint( CLearnerBayes.ELearnerLabel.LIKE, m_cCurrentDataPoint ) ); }
+            else if( cSource == m_cButtonDislike ){ _displayImage( m_cLearner.getNextDataPoint( CLearnerBayes.ELearnerLabel.DISLIKE, m_cCurrentDataPoint ) ); }
             else if( cSource == m_cButtonPrevious ){ _displayImage( m_cLearner.getPreviousDataPoint( ) ); }
             else if( cSource == m_cButtonReset )
             {
@@ -187,15 +194,15 @@ public final class CGUI implements ActionListener, KeyListener
                 m_cLearner.reset( );
                 
                 //ds get a new image
-                _displayImage( m_cLearner.getNextDataPoint( CLearner.ELearner.IDC ) );
+                _displayImage( m_cLearner.getFirstDataPoint( ) );
             }
         }
-        catch( CZEPEoIException e )
+        catch( SQLException e )
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPException: " + e.getMessage( ) );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPMySQLManagerException: " + e.getMessage( ) );
             
-            //ds TODO improve exception handling - right now there will just be no image displayed
-            JOptionPane.showMessageDialog( m_cFrame, "Reached end of image sequence - press [Reset] to start over" );           
+            //ds no previous image available
+            JOptionPane.showMessageDialog( m_cFrame, "Could not load image from MySQL database" );            
         }
         catch( CZEPnpIException e )
         {
@@ -210,6 +217,27 @@ public final class CGUI implements ActionListener, KeyListener
             
             //ds no previous image available
             JOptionPane.showMessageDialog( m_cFrame, "Could not load image from MySQL database" );         
+        }
+        catch( MalformedURLException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) MalformedURLException: " + e.getMessage( ) );
+            
+            //ds no previous image available
+            JOptionPane.showMessageDialog( m_cFrame, "Could not load image from MySQL database" );                
+        }
+        catch( CZEPEoIException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPEoIException: " + e.getMessage( ) );
+            
+            //ds no previous image available
+            JOptionPane.showMessageDialog( m_cFrame, "Could not load image from MySQL database" );                
+        }
+        catch( CZEPLearnerException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPLearnerException: " + e.getMessage( ) );
+            
+            //ds no previous image available
+            JOptionPane.showMessageDialog( m_cFrame, "Internal learning error - please reset" );                
         }
     }
     
@@ -237,6 +265,9 @@ public final class CGUI implements ActionListener, KeyListener
     //ds update GUI with new image
     private void _displayImage( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
     {
+        //ds update active datapoint
+        m_cCurrentDataPoint = p_cDataPoint;
+        
     	//ds get the extension
     	final String strExtension = p_cDataPoint.getType( );
     	
@@ -257,17 +288,20 @@ public final class CGUI implements ActionListener, KeyListener
         m_cTextFieldURL.setText( p_cDataPoint.getURL( ).toString( ) );
         m_cTextFieldTags.setText( p_cDataPoint.getTags( ).toString( ) );
         
-        //ds side panel
+        //ds datapoint properties
         m_cTextFieldImageID.setText( Integer.toString( p_cDataPoint.getID( ) ) );
-        m_cTextFieldVisits.setText( Integer.toString( m_cLearner.getNumberOfVisits( ) ) );
         m_cTextFieldType.setText( p_cDataPoint.getType( ) );
-        m_cTextFieldDatasetSize.setText( Integer.toString( m_cLearner.getDatasetSize( ) ) );
         m_cTextFieldLikes.setText( Integer.toString( p_cDataPoint.getLikes( ) ) );
         m_cTextFieldDislikes.setText( Integer.toString( p_cDataPoint.getDislikes( ) ) );
         m_cTextFieldTextPercent.setText( String.format( "%3.2f", p_cDataPoint.getTextAmount( ) ) );
         m_cTextFieldIsPhoto.setText( Boolean.toString( p_cDataPoint.isPhoto( ) ) );
         m_cTextFieldComments.setText( Integer.toString( p_cDataPoint.getCountComments( ) ) );
         m_cTextFieldTagsCount.setText( Integer.toString( p_cDataPoint.getCountTags( ) ) );
+        
+        //ds learner
+        m_cTextFieldVisits.setText( Integer.toString( m_cLearner.getNumberOfVisits( ) ) );
+        m_cTextFieldDatasetSize.setText( Integer.toString( m_cLearner.getRequests( ) ) );
+        m_cTextFieldTotalLikes.setText( Integer.toString( m_cLearner.getNumberOfLikes( ) ) );
     }
     
     //ds component setup
@@ -309,6 +343,7 @@ public final class CGUI implements ActionListener, KeyListener
         m_cTextFieldIsPhoto.setEditable( false );
         m_cTextFieldComments.setEditable( false );
         m_cTextFieldTagsCount.setEditable( false );
+        m_cTextFieldTotalLikes.setEditable( false );
         
         //ds add the sidebar panels
         final JPanel cPanelImageID     = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
@@ -322,6 +357,7 @@ public final class CGUI implements ActionListener, KeyListener
         final JPanel cPanelIsPhoto     = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelComments    = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         final JPanel cPanelTagsCount   = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
+        final JPanel cPanelTotalLikes  = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         
         //ds structural side bar
         final JPanel cPanelProperties = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
@@ -340,6 +376,7 @@ public final class CGUI implements ActionListener, KeyListener
         cPanelIsPhoto.add( new JLabel( "Photograph: " ) );       cPanelIsPhoto.add( m_cTextFieldIsPhoto );
         cPanelComments.add( new JLabel( "Comments: " ) );        cPanelComments.add( m_cTextFieldComments );
         cPanelTagsCount.add( new JLabel( "Tags Count: " ) );     cPanelTagsCount.add( m_cTextFieldTagsCount );
+        cPanelTotalLikes.add( new JLabel( "Total Likes: " ) );   cPanelTotalLikes.add( m_cTextFieldTotalLikes );
         
         cPanelProperties.add( new JLabel( "Properties                    " ) );
         cPanelLearning.add(   new JLabel( "Learning                       " ) );
@@ -357,6 +394,7 @@ public final class CGUI implements ActionListener, KeyListener
         cPanelIsPhoto.setMaximumSize( cPanelIsPhoto.getPreferredSize( ) );
         cPanelComments.setMaximumSize( cPanelComments.getPreferredSize( ) );
         cPanelTagsCount.setMaximumSize( cPanelTagsCount.getPreferredSize( ) );
+        cPanelTotalLikes.setMaximumSize( cPanelTotalLikes.getPreferredSize( ) );
         
         cPanelProperties.setMaximumSize( cPanelProperties.getPreferredSize( ) );
         cPanelLearning.setMaximumSize( cPanelLearning.getPreferredSize( ) );
@@ -374,6 +412,7 @@ public final class CGUI implements ActionListener, KeyListener
         cPanelIsPhoto.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelComments.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelTagsCount.setAlignmentX( Component.RIGHT_ALIGNMENT );
+        cPanelTotalLikes.setAlignmentX( Component.RIGHT_ALIGNMENT );
         
         cPanelProperties.setAlignmentX( Component.RIGHT_ALIGNMENT );
         cPanelLearning.setAlignmentX( Component.RIGHT_ALIGNMENT );
@@ -418,6 +457,7 @@ public final class CGUI implements ActionListener, KeyListener
         m_cPanelEast.add( cPanelLearning );
         m_cPanelEast.add( cPanelDatasetSize );
         m_cPanelEast.add( cPanelVisits );
+        m_cPanelEast.add( cPanelTotalLikes );
         m_cPanelEast.add( cPanelConfidence );
         
         m_cPanelSouth.add( m_cButtonReset );

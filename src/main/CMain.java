@@ -8,7 +8,8 @@ import exceptions.CZEPEoIException;
 import exceptions.CZEPMySQLManagerException;
 import utility.CLogger;
 import utility.CMySQLManager;
-import learning.CLearner;
+import learning.CLearnerBayes;
+//import learning.CLearnerRandom;
 
 public final class CMain
 {
@@ -75,7 +76,7 @@ public final class CMain
         }
         
         //ds allocate a gui instance with its own learner
-        final CGUI cGUI = new CGUI( new CLearner( cMySQLManager ), cMySQLManager, m_iWindowWidth, m_iWindowHeight );
+        final CGUI cGUI = new CGUI( new CLearnerBayes( cMySQLManager ), cMySQLManager, m_iWindowWidth, m_iWindowHeight );
         
         //ds launch GUI and learner (indirect)
         try
