@@ -81,7 +81,7 @@ public final class CMySQLManager
     }
     
     //ds insert datapoint
-    public void insertDataPoint( final CDataPoint p_cDataPoint ) throws SQLException, CZEPMySQLManagerException, MalformedURLException, IOException
+    public final void insertDataPoint( final CDataPoint p_cDataPoint ) throws SQLException, CZEPMySQLManagerException, MalformedURLException, IOException
     {
         //ds first check if we already have an entry for this image (no double URLs allowed)
         final PreparedStatement cStatementCheckDataPoint = m_cMySQLConnection.prepareStatement( "SELECT `id_datapoint` from `datapoints` WHERE `url` = ( ? ) LIMIT 1" );
@@ -192,10 +192,8 @@ public final class CMySQLManager
     }
     
     //ds access function: single datapoint by id
-    public CDataPoint getDataPointByID( final int p_iID_DataPoint ) throws SQLException, MalformedURLException, CZEPMySQLManagerException
+    public final CDataPoint getDataPointByID( final int p_iID_DataPoint ) throws SQLException, MalformedURLException, CZEPMySQLManagerException
     {
-        System.out.println( "fetching: " + p_iID_DataPoint );
-        
         //ds query for the id
         final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
         cRetrieveDataPoint.setInt( 1, p_iID_DataPoint );
@@ -206,50 +204,8 @@ public final class CMySQLManager
         //ds if we could access the datapoint
         if( cResultSetDataPoint.next( ) )
         {
-            //ds extract the data separately (for readability)
-            final String strURL      = cResultSetDataPoint.getString( "url" );
-            final String strTitle    = cResultSetDataPoint.getString( "title" );
-            final String strType     = cResultSetDataPoint.getString( "type" );
-            final int iLikes         = cResultSetDataPoint.getInt( "likes" );
-            final int iDislikes      = cResultSetDataPoint.getInt( "dislikes" );
-            final int iCountComments = cResultSetDataPoint.getInt( "count_comments" );
-            final int iCountTags     = cResultSetDataPoint.getInt( "count_tags" );
-            final boolean bIsPhoto   = cResultSetDataPoint.getBoolean( "is_photo" );
-            final double dTextAmount = cResultSetDataPoint.getDouble( "text_amount" );
-            
-            //ds tag vector to be filled
-            Vector< String > vecTags = new Vector< String >( );
-            
-            //ds now retrieve the feature information (tags)
-            final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE `id_datapoint` = ( ? )" );
-            cRetrieveMapping.setInt( 1, p_iID_DataPoint );
-            
-            //ds get the mapping
-            final ResultSet cResultSetMapping = cRetrieveMapping.executeQuery( );
-            
-            //ds for all the mappings
-            while( cResultSetMapping.next( ) )
-            {
-                //ds get feature id
-                final int iID_Feature = cResultSetMapping.getInt( "id_feature" );
-           
-                //ds get actual feature
-                final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `features` WHERE `id_feature` = ( ? ) LIMIT 1" );
-                cRetrieveTag.setInt( 1, iID_Feature );
-                
-                //ds get the feature
-                final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
-                
-                //ds if exists
-                if( cResultSetTag.next( ) )
-                {
-                    //ds add the current tag
-                    vecTags.add( cResultSetTag.getString( "value" ) );
-                }
-            }
-            
             //ds return the datapoint
-            return new CDataPoint( p_iID_DataPoint, new URL( strURL ), strTitle, strType, iLikes, iDislikes, iCountComments, iCountTags, bIsPhoto, dTextAmount, vecTags );
+            return _getDataPointFromResultSet( cResultSetDataPoint );    
         }
         else
         {
@@ -257,100 +213,57 @@ public final class CMySQLManager
         }
     }
     
-    //ds access function: single datapoint by feature
-    public CDataPoint getDataPointByFeature( final String p_strTag )
+    //ds fetches a set of datapoints
+    public final Vector< CDataPoint > getDataPointsByIDRange( final int p_iIDStart, final int p_iIDEnd ) throws SQLException, MalformedURLException, CZEPMySQLManagerException
     {
-        return null;
-    }
-    
-    //ds access function: multiple datapoints
-    public final Map< Integer, CDataPoint > getDataset( final int p_iMaximumNumberOfDataPoints ) throws SQLException, MalformedURLException
-    {
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) received fetch request - start downloading .." );
+        //ds get max id in database
+        final int iIDMaximum = _getMaxIDFromTable( "id_datapoint", "datapoints" );
         
-        //ds informative counters
-        int iNumberOfDataPoints = 0;
-        int iNumberOfFeatures   = 0;
+        //ds check if we want to access to much
+        if( p_iIDEnd > iIDMaximum )
+        {
+            //ds escape
+            throw new CZEPMySQLManagerException( "index: " + p_iIDEnd + " is out of range: " + iIDMaximum );            
+        }
+            
+        //ds target number of elements to fetch
+        final int iFetchSize = p_iIDEnd-p_iIDStart+1;
+            
+        //ds vector to fill
+        final Vector< CDataPoint > vecDataPoints = new Vector< CDataPoint >( 0 );
         
-    	//ds allocate a fresh map
-    	final Map< Integer, CDataPoint > mapDataset = new HashMap< Integer, CDataPoint >( );
-    	
-        //ds query for the first id
-        final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= 1" );
+        //ds query for the id
+        final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= ( ? )" );
+        cRetrieveDataPoint.setInt( 1, p_iIDStart );
         
         //ds get the result
         final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
         
-        //ds as long as we have remaining data
-        while( cResultSetDataPoint.next( ) && iNumberOfDataPoints < p_iMaximumNumberOfDataPoints )
-        {   
-        	//ds get the ID
-        	final int iID_DataPoint = cResultSetDataPoint.getInt( "id_datapoint" );
-        	
-            //ds extract the data separately (for readability)
-            final String strURL      = cResultSetDataPoint.getString( "url" );
-            final String strTitle    = cResultSetDataPoint.getString( "title" );
-            final String strType     = cResultSetDataPoint.getString( "type" );
-            final int iLikes         = cResultSetDataPoint.getInt( "likes" );
-            final int iDislikes      = cResultSetDataPoint.getInt( "dislikes" );
-            final int iCountComments = cResultSetDataPoint.getInt( "count_comments" );
-            final int iCountTags     = cResultSetDataPoint.getInt( "count_tags" );
-            final boolean bIsPhoto   = cResultSetDataPoint.getBoolean( "is_photo" );
-            final double dTextAmount = cResultSetDataPoint.getDouble( "text_amount" );
-            
-            //ds tag vector to be filled
-            Vector< String > vecTags = new Vector< String >( );
-            
-            //ds now retrieve the feature information (tags)
-            final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE `id_datapoint` = ( ? )" );
-            cRetrieveMapping.setInt( 1, iID_DataPoint );
-            
-            //ds get the mapping
-            final ResultSet cResultSetMapping = cRetrieveMapping.executeQuery( );
-            
-            //ds for all the mappings
-            while( cResultSetMapping.next( ) )
-            {
-                //ds get feature id
-                final int iID_Feature = cResultSetMapping.getInt( "id_feature" );
-           
-                //ds get actual feature
-                final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `features` WHERE `id_feature` = ( ? ) LIMIT 1" );
-                cRetrieveTag.setInt( 1, iID_Feature );
-                
-                //ds get the feature
-                final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
-                
-                //ds if exists
-                if( cResultSetTag.next( ) )
-                {
-                    //ds add the current tag
-                    vecTags.add( cResultSetTag.getString( "value" ) );
-           
-                    //ds update counter
-                    ++iNumberOfFeatures;
-                }
-            }
-            
-            //ds add the datapoint to the map
-            mapDataset.put( iID_DataPoint, new CDataPoint( iID_DataPoint, new URL( strURL ), strTitle, strType, iLikes, iDislikes, iCountComments, iCountTags, bIsPhoto, dTextAmount, vecTags ) );
-            
-            //ds update
-            ++iNumberOfDataPoints;
-            
-            //ds log for every 100 imports
-            if( 0 == iNumberOfDataPoints%100 )
-            {
-            	System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) fetched: " + iNumberOfDataPoints + " DataPoints and continuing .." );
-            }
+        //ds as long as we have remaining data and do not exceed the fetch size
+        while( cResultSetDataPoint.next( ) && iFetchSize < vecDataPoints.size( ) )
+        {
+            //ds add the datapoint to the vector
+            vecDataPoints.add( _getDataPointFromResultSet( cResultSetDataPoint ) );        
         }
         
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) fetching complete" );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) added : " + iNumberOfDataPoints + " DataPoints" );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) with  : " + iNumberOfFeatures + " Features" );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) ratio : " + ( float )iNumberOfFeatures/iNumberOfDataPoints );
+        System.out.println( "fetched: [" + p_iIDStart + "," + p_iIDEnd + "] - total points: " + vecDataPoints.size( ) );
         
-        return mapDataset;
+        //ds check first and last id
+        if( p_iIDStart != vecDataPoints.firstElement( ).getID( ) || p_iIDEnd != vecDataPoints.lastElement( ).getID( ) )
+        {
+            //ds escape
+            throw new CZEPMySQLManagerException( "fetching mismatch for datapoint range: [" + p_iIDStart + "," + p_iIDEnd + "]" );
+        }
+        
+        //ds return the elements
+        return vecDataPoints;
+    }
+    
+    //ds access function: single datapoint by feature
+    public CDataPoint getDataPointByFeature( final String p_strTag )
+    {
+        //ds TODO
+        return null;
     }
     
     //ds regular image access
@@ -422,6 +335,48 @@ public final class CMySQLManager
         {
             throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );    		
         }
+    }
+    
+    //ds access function: multiple datapoints
+    public final Map< Integer, CDataPoint > getDataset( final int p_iMaximumNumberOfDataPoints ) throws SQLException, MalformedURLException
+    {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) received fetch request - start downloading .." );
+        
+        //ds informative counter
+        int iNumberOfDataPoints = 0;
+        
+        //ds allocate a fresh map
+        final Map< Integer, CDataPoint > mapDataset = new HashMap< Integer, CDataPoint >( );
+        
+        //ds query for the first id
+        final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= 1" );
+        
+        //ds get the result
+        final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
+        
+        //ds as long as we have remaining data
+        while( cResultSetDataPoint.next( ) && iNumberOfDataPoints < p_iMaximumNumberOfDataPoints )
+        {
+            //ds get the datapoint
+            final CDataPoint cDataPoint = _getDataPointFromResultSet( cResultSetDataPoint );
+            
+            //ds add the datapoint to the map
+            mapDataset.put( cDataPoint.getID( ), cDataPoint );
+            
+            //ds update
+            ++iNumberOfDataPoints;
+            
+            //ds log for every 100 imports
+            if( 0 == iNumberOfDataPoints%100 )
+            {
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) fetched: " + iNumberOfDataPoints + " DataPoints and continuing .." );
+            }
+        }
+        
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) fetching complete" );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) added : " + iNumberOfDataPoints + " DataPoints" );
+        
+        return mapDataset;
     }
     
     /*ds updater function
@@ -504,6 +459,7 @@ public final class CMySQLManager
         }
     }*/
     
+    //ds helper for emptyness check
     private final int _getMaxIDFromTable( final String p_strKeyID, final String p_strTable ) throws SQLException, CZEPMySQLManagerException
     {
         //ds determine the current max id in the database
@@ -527,5 +483,57 @@ public final class CMySQLManager
         }
         
         return iMaxID;
+    }
+    
+    //ds helper for dataelement retrieval
+    private final CDataPoint _getDataPointFromResultSet( final ResultSet p_cResultSetDataPoint ) throws SQLException, MalformedURLException
+    {
+        //ds get the ID
+        final int iID_DataPoint = p_cResultSetDataPoint.getInt( "id_datapoint" );
+        
+        //ds extract the data separately (for readability)
+        final String strURL      = p_cResultSetDataPoint.getString( "url" );
+        final String strTitle    = p_cResultSetDataPoint.getString( "title" );
+        final String strType     = p_cResultSetDataPoint.getString( "type" );
+        final int iLikes         = p_cResultSetDataPoint.getInt( "likes" );
+        final int iDislikes      = p_cResultSetDataPoint.getInt( "dislikes" );
+        final int iCountComments = p_cResultSetDataPoint.getInt( "count_comments" );
+        final int iCountTags     = p_cResultSetDataPoint.getInt( "count_tags" );
+        final boolean bIsPhoto   = p_cResultSetDataPoint.getBoolean( "is_photo" );
+        final double dTextAmount = p_cResultSetDataPoint.getDouble( "text_amount" );
+        
+        //ds tag vector to be filled
+        final Vector< String > vecTags = new Vector< String >( );
+        
+        //ds now retrieve the feature information (tags)
+        final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE `id_datapoint` = ( ? )" );
+        cRetrieveMapping.setInt( 1, iID_DataPoint );
+        
+        //ds get the mapping
+        final ResultSet cResultSetMapping = cRetrieveMapping.executeQuery( );
+        
+        //ds for all the mappings
+        while( cResultSetMapping.next( ) )
+        {
+            //ds get feature id
+            final int iID_Feature = cResultSetMapping.getInt( "id_feature" );
+       
+            //ds get actual feature
+            final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `features` WHERE `id_feature` = ( ? ) LIMIT 1" );
+            cRetrieveTag.setInt( 1, iID_Feature );
+            
+            //ds get the feature
+            final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
+            
+            //ds if exists
+            if( cResultSetTag.next( ) )
+            {
+                //ds add the current tag
+                vecTags.add( cResultSetTag.getString( "value" ) );
+            }
+        }
+        
+        //ds return the datapoint
+        return new CDataPoint( iID_DataPoint, new URL( strURL ), strTitle, strType, iLikes, iDislikes, iCountComments, iCountTags, bIsPhoto, dTextAmount, vecTags );
     }
 }

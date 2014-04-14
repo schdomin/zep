@@ -20,8 +20,10 @@ public final class CLearnerBayes
     //ds enums
     public static enum ELearnerLabel{ LIKE, DISLIKE }
 
-    
-    
+    //ds datapool elements
+    private Vector< CDataPoint > m_vecDatapool = new Vector< CDataPoint >( 0 );
+    private final int m_iSizeSelection         = 10;
+    private final int m_iSizeDatapool          = 100;
     
     //ds phases
     private boolean m_bIsCalibrationPhaseActive = false;
@@ -41,12 +43,12 @@ public final class CLearnerBayes
 
     
     //ds vector with picked IDs and complete pick history
-    private Vector< Integer > m_vecIDsPicked  = new Vector< Integer >( );
-    private Vector< Integer > m_vecIDsHistory = new Vector< Integer >( );
+    private Vector< Integer > m_vecIDsPicked  = new Vector< Integer >( 0 );
+    private Vector< Integer > m_vecIDsHistory = new Vector< Integer >( 0 );
     
     
     //ds statistics: this vector keeps track of the LIKE/DISLIKE/.. sequence format: [id_datapoint][label]
-    private Map< Integer, ELearnerLabel > m_mapLabels  = new HashMap< Integer, ELearnerLabel >( );
+    private Map< Integer, ELearnerLabel > m_mapLabels  = new HashMap< Integer, ELearnerLabel >( 0 );
     private int m_iNumberOfLikes    = 0;
     private int m_iNumberOfDislikes = 0;
     private int m_iRequestCounter   = 1;
@@ -82,20 +84,16 @@ public final class CLearnerBayes
             //ds escape
             throw new CZEPEoIException( "empty database" ); 
         }
-        else
-        {
-            //ds do launch stuff
-        }
     }
     
     //ds simple getter - does not change the request counter for an update cycle
     public final CDataPoint getFirstDataPoint( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException
     {
         //ds register pick
-        m_vecIDsHistory.add( 1 );
+        m_vecIDsHistory.add( m_vecDatapool.firstElement( ).getID( ) );
         
-        //ds just retrieve the current data point
-        return new CDataPoint( m_cMySQLManager.getDataPointByID( 1 ) );
+        //ds retrieve the first datapoint
+        return m_vecDatapool.firstElement( );
     }
     
     //ds returns the next image
@@ -159,36 +157,46 @@ public final class CLearnerBayes
     //ds returns the previous image - does not change the request counter for an update cycle
     public final CDataPoint getPreviousDataPoint( ) throws CZEPnpIException, MalformedURLException, CZEPMySQLManagerException, SQLException
     {
-    	//ds check if there is a previous image available (means at least 2 images picked by GUI)
-    	if( 0 < m_vecIDsPicked.size( ) )
-    	{
-    	    //ds get the last element from picked
-    	    final int iPreviousID = m_vecIDsPicked.lastElement( );
-    	    
-    	    //ds remove the element from the picked ones
-    	    m_vecIDsPicked.remove( m_vecIDsPicked.size( )-1 );
-    	    
-    	    //ds get the label for the last action
-    	    final ELearnerLabel eLabel = m_mapLabels.get( iPreviousID );
-    	    
-    	    //ds decrease according counter
+        //ds check if there is a previous image available (means at least 2 images picked by GUI)
+        if( 0 < m_vecIDsPicked.size( ) )
+        {
+            //ds get the last element from picked
+            final int iPreviousID = m_vecIDsPicked.lastElement( );
+            
+            //ds remove the element from the picked ones
+            m_vecIDsPicked.remove( m_vecIDsPicked.size( )-1 );
+            
+            //ds get the label for the last action
+            final ELearnerLabel eLabel = m_mapLabels.get( iPreviousID );
+            
+            //ds decrease according counter
             if(         ELearnerLabel.LIKE == eLabel ){ --m_iNumberOfLikes; }
             else if( ELearnerLabel.DISLIKE == eLabel ){ --m_iNumberOfDislikes; }   	    
-    	    
-    	    //ds remove entry from the map
-    	    m_mapLabels.remove( iPreviousID );
-    	    
+            
+            //ds remove entry from the map
+            m_mapLabels.remove( iPreviousID );
+            
             //ds register pick
             m_vecIDsHistory.add( iPreviousID );
-    	    
-    	    //ds return the according datapoint
-    	    return m_cMySQLManager.getDataPointByID( iPreviousID );
-    	}
-    	else
-    	{
-    		//ds no previous picture available
-    		throw new CZEPnpIException( "No previous image available" );
-    	}
+            
+            //ds return the according datapoint
+            return m_cMySQLManager.getDataPointByID( iPreviousID );
+        }
+        else
+        {
+            //ds no previous picture available
+            throw new CZEPnpIException( "No previous image available" );
+        }
+    }
+    
+    //ds loads the initial dataset
+    public void fetchInitialDatapool( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException
+    {
+        //ds make sure the datapool is empty
+        m_vecDatapool.clear( );
+        
+        //ds get datapoints from id 1 to selection size+pool size for the initialization
+        m_vecDatapool = m_cMySQLManager.getDataPointsByIDRange( 1, m_iSizeDatapool+m_iSizeSelection );
     }
     
     //ds reset function for the learner

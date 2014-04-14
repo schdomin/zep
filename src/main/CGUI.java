@@ -30,6 +30,7 @@ import learning.CLearnerBayes;
 //ds custom imports
 //import learning.CLearnerRandom;
 import exceptions.CZEPEoIException;
+import exceptions.CZEPGUIException;
 import exceptions.CZEPLearnerException;
 import exceptions.CZEPMySQLManagerException;
 import exceptions.CZEPnpIException;
@@ -138,7 +139,7 @@ public final class CGUI implements ActionListener, KeyListener
     }
     
     //ds enable display
-    public void launch( ) throws CZEPMySQLManagerException, SQLException, CZEPEoIException, MalformedURLException
+    public void launch( ) throws CZEPGUIException
     {
         //ds allocate a dialog object to display independently
         final JDialog cDialog = new JDialog( m_cFrame, "ZEP: Zero-Effort Procrastination", false );
@@ -150,11 +151,26 @@ public final class CGUI implements ActionListener, KeyListener
         cDialog.pack( );
         cDialog.setVisible( true );
         
-    	//ds launch the learner
-    	m_cLearner.launch( );
+        try
+        {
+            //ds fetch initial datapool
+            m_cLearner.fetchInitialDatapool( );
     	
-        //ds try to get the image for first display
-        _displayImage( m_cLearner.getFirstDataPoint( ) );
+            //ds try to get the image for first display
+            _displayImage( m_cLearner.getFirstDataPoint( ) );
+        }
+        catch( Exception e )
+        {
+            //ds info
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(launch) Exception: " + e.getMessage( ) + " - could not fetch database" );
+            
+            //ds dispose loading screen
+            cDialog.removeAll( );
+            cDialog.dispose( );   
+            
+            //ds rethrow
+            throw new CZEPGUIException( "GUI aborted" );
+        }
         
         //ds dispose loading screen
         cDialog.removeAll( );

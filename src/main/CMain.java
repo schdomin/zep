@@ -5,6 +5,7 @@ import java.sql.SQLException;
 
 //ds custom imports
 import exceptions.CZEPEoIException;
+import exceptions.CZEPGUIException;
 import exceptions.CZEPMySQLManagerException;
 import utility.CLogger;
 import utility.CMySQLManager;
@@ -75,29 +76,23 @@ public final class CMain
             return;            
         }
         
-        //ds allocate a gui instance with its own learner
-        final CGUI cGUI = new CGUI( new CLearnerBayes( cMySQLManager ), cMySQLManager, m_iWindowWidth, m_iWindowHeight );
+        //ds allocate the learner
+        final CLearnerBayes cLearner = new CLearnerBayes( cMySQLManager );
         
-        //ds launch GUI and learner (indirect)
         try
         {
-        	cGUI.launch( );
-	    }
+        	//ds launch the learner
+        	cLearner.launch( );
+        }
 	    catch( SQLException e )
 	    {
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) SQLException: " + e.getMessage( ) + " - could not connect to MySQL database" );
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
 	        return;      
 	    }
-        catch( MalformedURLException e )
-        {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) MalformedURLException: " + e.getMessage( ) + " - could not fetch database" );
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
-            return;
-        }
 	    catch( CZEPMySQLManagerException e )
 	    {
-	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " - could not launch <CLearner>" );
+	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " - could not launch learner" );
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
 	        return;      
 	    }
@@ -107,6 +102,21 @@ public final class CMain
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
 	        return;      
 	    }
+        
+        //ds allocate a gui instance on the learner
+        final CGUI cGUI = new CGUI( cLearner, cMySQLManager, m_iWindowWidth, m_iWindowHeight );
+
+        try
+        {
+            //ds launch GUI (this will automatically fetch the first datapool since needed for display)
+            cGUI.launch( );
+        }
+        catch( CZEPGUIException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPGUIException: " + e.getMessage( ) + " - could not initialize GUI" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            return;                  
+        }
              
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "|                                      CLASSIFICATION PHASE                                      |" );
