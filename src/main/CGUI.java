@@ -154,7 +154,7 @@ public final class CGUI implements ActionListener, KeyListener
         try
         {
             //ds fetch initial datapool
-            m_cLearner.fetchInitialDatapool( );
+            m_cLearner.fetchInitialDataPool( );
     	
             //ds try to get the image for first display
             _displayImage( m_cLearner.getFirstDataPoint( ) );
@@ -309,14 +309,28 @@ public final class CGUI implements ActionListener, KeyListener
         m_cTextFieldType.setText( p_cDataPoint.getType( ) );
         m_cTextFieldLikes.setText( Integer.toString( p_cDataPoint.getLikes( ) ) );
         m_cTextFieldDislikes.setText( Integer.toString( p_cDataPoint.getDislikes( ) ) );
-        m_cTextFieldTextPercent.setText( String.format( "%3.2f", p_cDataPoint.getTextAmount( ) ) );
-        m_cTextFieldIsPhoto.setText( Boolean.toString( p_cDataPoint.isPhoto( ) ) );
+        
+        //ds check if gif
+        if( strExtension.matches( "gif" ) )
+        {
+            //ds no detection done
+            m_cTextFieldTextPercent.setText( "" );
+            m_cTextFieldIsPhoto.setText( "" );
+        }
+        else
+        {
+            //ds get the values
+            m_cTextFieldTextPercent.setText( String.format( "%3.2f", p_cDataPoint.getTextAmount( ) ) );
+            m_cTextFieldIsPhoto.setText( Boolean.toString( p_cDataPoint.isPhoto( ) ) );            
+        }
+        
+        
         m_cTextFieldComments.setText( Integer.toString( p_cDataPoint.getCountComments( ) ) );
         m_cTextFieldTagsCount.setText( Integer.toString( p_cDataPoint.getCountTags( ) ) );
         
         //ds learner
         m_cTextFieldVisits.setText( Integer.toString( m_cLearner.getNumberOfVisits( ) ) );
-        m_cTextFieldDatasetSize.setText( Integer.toString( m_cLearner.getRequests( ) ) );
+        m_cTextFieldDatasetSize.setText( Integer.toString( m_cLearner.getOperations( ) ) );
         m_cTextFieldTotalLikes.setText( Integer.toString( m_cLearner.getNumberOfLikes( ) ) );
     }
     
@@ -381,18 +395,18 @@ public final class CGUI implements ActionListener, KeyListener
         final JPanel cPanelWhitespace = new JPanel( new FlowLayout( FlowLayout.RIGHT ) );
         
         //ds add labels and textfield to each panel
-        cPanelImageID.add( new JLabel( "MySQL ID: " ) );         cPanelImageID.add( m_cTextFieldImageID );
-        cPanelLikes.add( new JLabel( "Likes: " ) );              cPanelLikes.add( m_cTextFieldLikes );
-        cPanelDislikes.add( new JLabel( "Dislikes: " ) );        cPanelDislikes.add( m_cTextFieldDislikes );
-        cPanelVisits.add( new JLabel( "Visited Images: " ) );    cPanelVisits.add( m_cTextFieldVisits );
-        cPanelConfidence.add( new JLabel( "Confidence: " ) );    cPanelConfidence.add( m_cTextFieldConfidence );
-        cPanelType.add( new JLabel( "Type: " ) );                cPanelType.add( m_cTextFieldType );
-        cPanelDatasetSize.add( new JLabel( "Dataset Size: " ) ); cPanelDatasetSize.add( m_cTextFieldDatasetSize );
-        cPanelTextPercent.add( new JLabel( "Text Amount: " ) );  cPanelTextPercent.add( m_cTextFieldTextPercent );
-        cPanelIsPhoto.add( new JLabel( "Photograph: " ) );       cPanelIsPhoto.add( m_cTextFieldIsPhoto );
-        cPanelComments.add( new JLabel( "Comments: " ) );        cPanelComments.add( m_cTextFieldComments );
-        cPanelTagsCount.add( new JLabel( "Tags Count: " ) );     cPanelTagsCount.add( m_cTextFieldTagsCount );
-        cPanelTotalLikes.add( new JLabel( "Total Likes: " ) );   cPanelTotalLikes.add( m_cTextFieldTotalLikes );
+        cPanelImageID.add( new JLabel( "MySQL ID: " ) );        cPanelImageID.add( m_cTextFieldImageID );
+        cPanelLikes.add( new JLabel( "Likes: " ) );             cPanelLikes.add( m_cTextFieldLikes );
+        cPanelDislikes.add( new JLabel( "Dislikes: " ) );       cPanelDislikes.add( m_cTextFieldDislikes );
+        cPanelVisits.add( new JLabel( "Visited Images: " ) );   cPanelVisits.add( m_cTextFieldVisits );
+        cPanelConfidence.add( new JLabel( "Confidence: " ) );   cPanelConfidence.add( m_cTextFieldConfidence );
+        cPanelType.add( new JLabel( "Type: " ) );               cPanelType.add( m_cTextFieldType );
+        cPanelDatasetSize.add( new JLabel( "Operations: " ) );  cPanelDatasetSize.add( m_cTextFieldDatasetSize );
+        cPanelTextPercent.add( new JLabel( "Text Amount: " ) ); cPanelTextPercent.add( m_cTextFieldTextPercent );
+        cPanelIsPhoto.add( new JLabel( "Photograph: " ) );      cPanelIsPhoto.add( m_cTextFieldIsPhoto );
+        cPanelComments.add( new JLabel( "Comments: " ) );       cPanelComments.add( m_cTextFieldComments );
+        cPanelTagsCount.add( new JLabel( "Tags Count: " ) );    cPanelTagsCount.add( m_cTextFieldTagsCount );
+        cPanelTotalLikes.add( new JLabel( "Total Likes: " ) );  cPanelTotalLikes.add( m_cTextFieldTotalLikes );
         
         cPanelProperties.add( new JLabel( "Properties                    " ) );
         cPanelLearning.add(   new JLabel( "Learning                       " ) );

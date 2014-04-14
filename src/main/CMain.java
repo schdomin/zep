@@ -127,13 +127,41 @@ public final class CMain
         {
             try
             {
-                //ds stay alive
-                Thread.sleep( 1000 );
+                //ds avoid 100% cpu
+                Thread.sleep( 100 );
+                
+                //ds check if we have to classify for the learner
+                if( cLearner.isReadyToClassify( ) )
+                {
+                    //ds do classification
+                    cLearner.classify( );
+                }
             }
             catch( InterruptedException e )
             {
                 //ds not fatal
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) InterruptedException: " + e.getMessage( ) );
+            }
+            catch( MalformedURLException e )
+            {
+                //ds fatal
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) MalformedURLException: " + e.getMessage( ) + " could not classify" );
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+                return; 
+            }
+            catch( SQLException e )
+            {
+                //ds fatal
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) SQLException: " + e.getMessage( ) + " could not classify" );
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+                return; 
+            }
+            catch( CZEPMySQLManagerException e )
+            {
+                //ds fatal
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " could not classify" );
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+                return; 
             }
         }
         

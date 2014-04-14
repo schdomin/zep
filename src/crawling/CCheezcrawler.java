@@ -155,7 +155,7 @@ public class CCheezcrawler extends Thread
                 if( 0 == iCurrentPage%10 )
                 {
                     //ds info
-                    System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) crawled pages: " + iCurrentPage + " added points: " + m_iCurrentNumberOfImagesToMySQL );
+                    System.out.println( "[" + CLogger.getStamp( ) + "]<CCheezcrawler>(run) crawled pages: " + iCurrentPage + " added points: " + m_iCurrentNumberOfImagesToMySQL + " already: " + m_iCurrentNumberOfAlreadyMySQL );
                 }
                 
                 //ds increase counter

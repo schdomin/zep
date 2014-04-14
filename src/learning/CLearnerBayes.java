@@ -2,7 +2,9 @@ package learning;
 
 import java.net.MalformedURLException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
@@ -21,12 +23,20 @@ public final class CLearnerBayes
     public static enum ELearnerLabel{ LIKE, DISLIKE }
 
     //ds datapool elements
-    private Vector< CDataPoint > m_vecDatapool = new Vector< CDataPoint >( 0 );
-    private final int m_iSizeSelection         = 10;
-    private final int m_iSizeDatapool          = 100;
+    private Vector< CDataPoint > m_vecDataPool          = new Vector< CDataPoint >( 0 );
+    private List< CDataPoint > m_lstSelectionPoolActive = new ArrayList< CDataPoint >( );
+    private List< CDataPoint > m_lstSelectionPoolNext   = new ArrayList< CDataPoint >( );
+    private final int m_iSizeSelection                  = 10;
+    private final int m_iSizeDatapool                   = 100;
+    private int m_iSelectionCounter                     = 0;
     
-    //ds phases
-    private boolean m_bIsCalibrationPhaseActive = false;
+    //ds sanity check
+    private int m_iLastIDCycle = 0;
+    
+    //ds simple communication with main
+    private boolean m_bIsReadyToClassify = false;
+    private boolean m_bIsClassifying     = false;
+
     
     
     
@@ -43,7 +53,7 @@ public final class CLearnerBayes
 
     
     //ds vector with picked IDs and complete pick history
-    private Vector< Integer > m_vecIDsPicked  = new Vector< Integer >( 0 );
+    //private Vector< Integer > m_vecIDsPicked  = new Vector< Integer >( 0 );
     private Vector< Integer > m_vecIDsHistory = new Vector< Integer >( 0 );
     
     
@@ -51,7 +61,6 @@ public final class CLearnerBayes
     private Map< Integer, ELearnerLabel > m_mapLabels  = new HashMap< Integer, ELearnerLabel >( 0 );
     private int m_iNumberOfLikes    = 0;
     private int m_iNumberOfDislikes = 0;
-    private int m_iRequestCounter   = 1;
     
     //ds mysql manager
     private final CMySQLManager m_cMySQLManager;
@@ -62,11 +71,8 @@ public final class CLearnerBayes
         //ds setup the manager
         m_cMySQLManager = p_cMySQLManager;
         
-        //ds activate calibration phase
-        m_bIsCalibrationPhaseActive = true;
-        
         //ds clean vectors
-        m_vecIDsPicked.clear( );
+        //m_vecIDsPicked.clear( );
         m_vecIDsHistory.clear( );
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(CLearnerBayes) Instance allocated" );
@@ -90,23 +96,33 @@ public final class CLearnerBayes
     public final CDataPoint getFirstDataPoint( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException
     {
         //ds register pick
-        m_vecIDsHistory.add( m_vecDatapool.firstElement( ).getID( ) );
+        m_vecIDsHistory.add( m_lstSelectionPoolActive.get( 0 ).getID( ) );
         
         //ds retrieve the first datapoint
-        return m_vecDatapool.firstElement( );
+        return m_lstSelectionPoolActive.get( 0 );
     }
     
     //ds returns the next image
     public final CDataPoint getNextDataPoint( final ELearnerLabel p_eFlag, final CDataPoint p_cLastDataPoint ) throws CZEPEoIException, MalformedURLException, CZEPMySQLManagerException, SQLException, CZEPLearnerException
     {
-        //ds sanity check
-        if( m_mapLabels.size( ) != m_vecIDsPicked.size( ) ){ throw new CZEPLearnerException( "Internal datastructure size mismatch" ); }
-        
-        //ds increase request counter
-        ++m_iRequestCounter;
-        
         //ds get the id
-        int iCurrentImageID = p_cLastDataPoint.getID( );
+        final int iCurrentImageID = p_cLastDataPoint.getID( );
+        
+        //ds check if we are the first image after classification
+        if( 0 == m_iSelectionCounter )
+        {
+            //ds sanity check if we dont have the same image as in the last cycle
+            if( m_iLastIDCycle != iCurrentImageID )
+            {
+                //ds update the id
+                m_iLastIDCycle = iCurrentImageID;
+            }
+            else
+            {
+                //ds classification is not working - fatal
+                throw new CZEPLearnerException( "sanity check failed same ID: " + iCurrentImageID + " no classification occured" );
+            }
+        }
         
         //ds save the flag for the last image
         m_mapLabels.put( iCurrentImageID, p_eFlag );
@@ -129,42 +145,46 @@ public final class CLearnerBayes
             if( p_cLastDataPoint.isPhoto( ) ){ ++m_iCounterDislikesPhotograph; }
         }
         
-        //ds add to picked
-        m_vecIDsPicked.add( iCurrentImageID );
+        //ds register pick
+        m_vecIDsHistory.add( iCurrentImageID );
         
-        //ds check if we are in the calibration phase
-        if( m_bIsCalibrationPhaseActive )
+        //ds increase pick counter
+        ++m_iSelectionCounter;
+        
+        //ds check if we would access the image out of the selection buffer
+        if( m_iSizeSelection <= m_iSelectionCounter )
         {
-            //ds just increment the current id
-            ++iCurrentImageID;
+            //ds check if main is still busy from the last request
+            if( m_bIsClassifying )
+            {
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(getNextDataPoint) Received classification request but main is busy" );                
+            }
             
-            //ds register pick
-            m_vecIDsHistory.add( iCurrentImageID );
+            //ds communicate with main over booleans we just have to set the ready boolean and go on
+            m_bIsReadyToClassify = true;
             
-            //ds and retrieve the next datapoint and return it
-            return m_cMySQLManager.getDataPointByID( iCurrentImageID );
+            //ds reset counter
+            m_iSelectionCounter = 0;
+            
+            //ds update selection pool
+            m_lstSelectionPoolActive = m_lstSelectionPoolNext;
         }
-        else
-        {
-            //ds register pick
-            m_vecIDsHistory.add( iCurrentImageID );
-            
-            //ds fancy image selection
-            return m_cMySQLManager.getDataPointByID( iCurrentImageID );
-        }
+        
+        //ds and retrieve the next datapoint and return it
+        return m_lstSelectionPoolActive.get( m_iSelectionCounter );
     }
     
     //ds returns the previous image - does not change the request counter for an update cycle
     public final CDataPoint getPreviousDataPoint( ) throws CZEPnpIException, MalformedURLException, CZEPMySQLManagerException, SQLException
     {
         //ds check if there is a previous image available (means at least 2 images picked by GUI)
-        if( 0 < m_vecIDsPicked.size( ) )
+        if( 0 < m_iSelectionCounter )
         {
-            //ds get the last element from picked
-            final int iPreviousID = m_vecIDsPicked.lastElement( );
+            //ds move back to previous element
+            --m_iSelectionCounter;
             
-            //ds remove the element from the picked ones
-            m_vecIDsPicked.remove( m_vecIDsPicked.size( )-1 );
+            //ds get the last element from picked
+            final int iPreviousID = m_lstSelectionPoolActive.get( m_iSelectionCounter ).getID( );
             
             //ds get the label for the last action
             final ELearnerLabel eLabel = m_mapLabels.get( iPreviousID );
@@ -180,7 +200,7 @@ public final class CLearnerBayes
             m_vecIDsHistory.add( iPreviousID );
             
             //ds return the according datapoint
-            return m_cMySQLManager.getDataPointByID( iPreviousID );
+            return m_lstSelectionPoolActive.get( m_iSelectionCounter );
         }
         else
         {
@@ -190,50 +210,93 @@ public final class CLearnerBayes
     }
     
     //ds loads the initial dataset
-    public void fetchInitialDatapool( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException
+    public final void fetchInitialDataPool( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException
     {
         //ds make sure the datapool is empty
-        m_vecDatapool.clear( );
+        m_vecDataPool.clear( );
         
         //ds get datapoints from id 1 to selection size+pool size for the initialization
-        m_vecDatapool = m_cMySQLManager.getDataPointsByIDRange( 1, m_iSizeDatapool+m_iSizeSelection );
+        m_vecDataPool = m_cMySQLManager.getDataPointsByIDRange( 1, m_iSizeDatapool+m_iSizeSelection );
+        
+        //ds initialize both selection pools (since we cannot classify from the beginning)
+        m_lstSelectionPoolActive = new ArrayList< CDataPoint >( m_vecDataPool.subList( 0, m_iSizeSelection ) );
+        m_lstSelectionPoolNext   = new ArrayList< CDataPoint >( m_vecDataPool.subList( m_iSizeSelection, 2*m_iSizeSelection ) );
+        
+        //ds now remove the selection from the datapool
+        m_vecDataPool.subList( 0, 2*m_iSizeSelection ).clear( );
     }
     
     //ds reset function for the learner
-    public void reset( )
+    public final void reset( )
     {
-        //ds clear picked ids
-        m_vecIDsPicked.clear( );
+        //ds add magic number 0 to history to mark reset
+        m_vecIDsHistory.add( 0 );
+        
+        //ds reset datapool structures
+        m_iSelectionCounter = 0;
+        
+        //ds sanity check
+        m_iLastIDCycle      = 0;
         
         //ds and labels
         m_mapLabels.clear( );
         
         //ds reset internals
-        m_iRequestCounter   = 1; 
         m_iNumberOfLikes    = 0;
         m_iNumberOfDislikes = 0;
     }
     
     //ds statistic
-    public final int getNumberOfVisits( ){ return m_vecIDsPicked.size( ); }
+    public final int getNumberOfVisits( ){ return 0; }
     public final int getNumberOfLikes( ){ return m_iNumberOfLikes; }
-    public final int getNumberOfDislikes( ){ return m_iNumberOfDislikes; }
-    public final int getRequests( ){ return m_iRequestCounter; }
+    public final int getOperations( ){ return m_vecIDsHistory.size( ); }
     
-    //ds retrieve a new image id
-    private int _getNewImageID( )
+    //ds main uses this method to check for classification needs
+    public final boolean isReadyToClassify( )
     {
-    	//ds determine the next id to pick
-    	//final int iIndex = 1;
-    	
-    	//ds access the element in the vector
-    	//final int iImageID = m_vecImageIDsAvailable.elementAt( iIndex );
-    	
-    	//ds we remove the ID from the availability vector and add it to the picked ones
-    	//m_vecImageIDsAvailable.remove( iIndex );
-    	//m_vecImageIDsPicked.add( iImageID );
-    	
-    	//ds return the ID
-    	return 0;
+        //ds if we are ready and not classifying (should never be the case - except this method gets called from somewhere else than main)
+        if( m_bIsReadyToClassify && !m_bIsClassifying )
+        {
+            //ds set the boolean that main is working on it
+            m_bIsClassifying = true;
+            
+            //ds reset the ready boolean
+            m_bIsReadyToClassify = false;
+            
+            //ds positive return
+            return true;
+        }
+        else
+        {
+            //ds not ready
+            return false;
+        }
+    }
+    
+    //ds evolve the datapool = classification
+    public final void classify( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException, InterruptedException
+    {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Classifying" );     
+        
+        //ds test
+        //Thread.sleep( 10000 );
+        
+        //ds compute new indices to fetch
+        final int iIDStart = m_vecDataPool.lastElement( ).getID( )+1;
+        final int iIDEnd   = iIDStart+m_iSizeSelection-1;
+        
+        //ds fetch new data
+        m_vecDataPool.addAll( m_cMySQLManager.getDataPointsByIDRange( iIDStart, iIDEnd ) );
+        
+        //ds TODO fancy Bayes operations
+        
+        //ds update next selection pool
+        m_lstSelectionPoolNext = new ArrayList< CDataPoint >( m_vecDataPool.subList( 0, m_iSizeSelection ) );
+        
+        //ds remove selection from data pool
+        m_vecDataPool.subList( 0, m_iSizeSelection ).clear( );
+        
+        //ds classification done
+        m_bIsClassifying = false;
     }
 }

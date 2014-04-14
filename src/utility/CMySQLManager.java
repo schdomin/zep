@@ -216,6 +216,8 @@ public final class CMySQLManager
     //ds fetches a set of datapoints
     public final Vector< CDataPoint > getDataPointsByIDRange( final int p_iIDStart, final int p_iIDEnd ) throws SQLException, MalformedURLException, CZEPMySQLManagerException
     {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataPointsByIDRange) Received fetch request for: [" + p_iIDStart + "," + p_iIDEnd + "]" );
+        
         //ds get max id in database
         final int iIDMaximum = _getMaxIDFromTable( "id_datapoint", "datapoints" );
         
@@ -240,13 +242,13 @@ public final class CMySQLManager
         final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
         
         //ds as long as we have remaining data and do not exceed the fetch size
-        while( cResultSetDataPoint.next( ) && iFetchSize < vecDataPoints.size( ) )
+        while( cResultSetDataPoint.next( ) && iFetchSize > vecDataPoints.size( ) )
         {
             //ds add the datapoint to the vector
             vecDataPoints.add( _getDataPointFromResultSet( cResultSetDataPoint ) );        
         }
         
-        System.out.println( "fetched: [" + p_iIDStart + "," + p_iIDEnd + "] - total points: " + vecDataPoints.size( ) );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataPointsByIDRange) Number of points fetched: " + vecDataPoints.size( ) );
         
         //ds check first and last id
         if( p_iIDStart != vecDataPoints.firstElement( ).getID( ) || p_iIDEnd != vecDataPoints.lastElement( ).getID( ) )
