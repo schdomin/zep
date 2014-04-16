@@ -276,7 +276,7 @@ public final class CLearnerBayes
     //ds evolve the datapool = classification
     public final void classify( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException, InterruptedException
     {
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Classifying" );     
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Fetching .." );     
         
         //ds test
         //Thread.sleep( 10000 );
@@ -289,6 +289,7 @@ public final class CLearnerBayes
         m_vecDataPool.addAll( m_cMySQLManager.getDataPointsByIDRange( iIDStart, iIDEnd ) );
         
         //ds TODO fancy Bayes operations
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Classifying .." ); 
         
         //ds update next selection pool
         m_lstSelectionPoolNext = new ArrayList< CDataPoint >( m_vecDataPool.subList( 0, m_iSizeSelection ) );
@@ -298,5 +299,7 @@ public final class CLearnerBayes
         
         //ds classification done
         m_bIsClassifying = false;
+        
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Done" ); 
     }
 }
