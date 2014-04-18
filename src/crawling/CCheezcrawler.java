@@ -24,6 +24,7 @@ import utility.CDataPoint;
 import utility.CImageHandler;
 import utility.CLogger;
 import utility.CMySQLManager;
+import utility.CTag;
 
 public class CCheezcrawler extends Thread
 {
@@ -292,23 +293,23 @@ public class CCheezcrawler extends Thread
 	                    final Elements vec_cTags = cTagHolder.getElementsByClass( "alt" );
 	                    
 	                    //ds tag vector
-	                    Vector< String > vec_strTags = new Vector<String>( );
+	                    Vector< CTag > vec_Tags = new Vector< CTag >( );
 	                    
 	                    //ds loop over all tags
 	                    for( Element cTag: vec_cTags )
 	                    {
 	                        //ds add the current tag to the vector
-	                        vec_strTags.add( cTag.text( ).toLowerCase( ) );
+	                        vec_Tags.add( new CTag( 0, cTag.text( ).toLowerCase( ), 0 ) );
 	                    }
 	                    
 	                    //ds create the datapoint
-	                    final CDataPoint cDataPoint = new CDataPoint( 0, cDownloadPath, strTitle, strExtension, iLikes, iDislikes, iCountComments, vec_strTags.size( ), bIsPhoto, dTextAmount , vec_strTags );
+	                    final CDataPoint cDataPoint = new CDataPoint( 0, cDownloadPath, strTitle, strExtension, iLikes, iDislikes, iCountComments, vec_Tags.size( ), bIsPhoto, dTextAmount , vec_Tags );
 	                    
 	                    //ds increase image counter
 	                    ++m_iCurrentNumberOfImages;
 	                    
 	                    //ds and feature counter
-	                    m_iCurrentNumberOfFeatures += vec_strTags.size( );
+	                    m_iCurrentNumberOfFeatures += vec_Tags.size( );
 	                    
 	                    try
 	                    {

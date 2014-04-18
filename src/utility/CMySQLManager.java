@@ -18,6 +18,8 @@ import java.util.Vector;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
+import utility.CTag;
+
 //ds custom imports
 import exceptions.CZEPMySQLManagerException;
 
@@ -33,10 +35,15 @@ public final class CMySQLManager
     private Connection m_cMySQLConnection;
     
     //ds fixed values (for now)
-    private final int m_iMySQLTimeout = 10000;
+    private final int m_iMySQLTimeoutMS = 10000;
     
     //ds log file writers
-    private String m_strLogFileFeatureGrowth = "features-";
+    private String m_strLogFileTagGrowth = "tags-";
+    
+    //ds feature handling
+    private final double m_dMinimumText               = 0.25;
+    private final double m_dMinimumLikeDislikeRatio   = 5;
+    private final double m_dMaximumVotesCommentsRatio = 10;
     
     //ds constructor
     public CMySQLManager( final String p_strMySQLDriver, final String p_strMySQLServerURL, final String p_strMySQLUsername, final String p_strMySQLPassword )
@@ -44,7 +51,7 @@ public final class CMySQLManager
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(CMySQLManager) Instance allocated" );
         
         //ds fix the logfile name
-        m_strLogFileFeatureGrowth += CLogger.getFileStamp( ) + ".csv";
+        m_strLogFileTagGrowth += CLogger.getFileStamp( ) + ".csv";
         
         //ds set values
         m_strMySQLDriver    = p_strMySQLDriver;
@@ -53,23 +60,74 @@ public final class CMySQLManager
         m_strMySQLPassword  = p_strMySQLPassword;
     }
     
+    //ds standalone
+    public static void main( String[] args )
+    {
+        //ds default configuration parameters: mysql
+        final String strMySQLDriver    = "com.mysql.jdbc.Driver";
+        final String strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
+        final String strMySQLUsername  = "domis";
+        final String strMySQLPassword  = "N0effort";
+        
+        //ds allocate the MySQL manager
+        final CMySQLManager cMySQLManager = new CMySQLManager( strMySQLDriver, strMySQLServerURL, strMySQLUsername, strMySQLPassword );
+        
+        try
+        {
+            //ds launch the manager
+            cMySQLManager.launch( );
+        }
+        catch( ClassNotFoundException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) ClassNotFoundException: " + e.getMessage( ) + " - could not establish MySQL connection" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) aborted" );
+            return;
+        }
+        catch( SQLException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) SQLException: " + e.getMessage( ) + " - could not establish a valid MySQL connection" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) aborted" );
+            return;            
+        }
+        catch( CZEPMySQLManagerException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " - failed to connect" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) aborted" );
+            return;            
+        }
+        
+        try
+        {
+            //ds create feature table
+            cMySQLManager.createFeatureTable( 10 );
+        }
+        catch( Exception e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) Exception: " + e.getMessage( ) + " - failed" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) aborted" );
+            return;             
+        }
+        
+        return;
+    }
+    
     //ds launch - establishes connection
     public final void launch( ) throws ClassNotFoundException, SQLException, CZEPMySQLManagerException
     {
         //ds setup driver
         Class.forName( m_strMySQLDriver );
         
-        //ds set login timeout
-        DriverManager.setLoginTimeout( 10 );
+        //ds set login timeout (seconds)
+        DriverManager.setLoginTimeout( m_iMySQLTimeoutMS/1000 );
         
         //ds establish connection
         m_cMySQLConnection = DriverManager.getConnection( m_strMySQLServerURL, m_strMySQLUsername, m_strMySQLPassword );      
         
         //ds check connection
-        if( !m_cMySQLConnection.isValid( m_iMySQLTimeout ) )
+        if( !m_cMySQLConnection.isValid( m_iMySQLTimeoutMS ) )
         {
             //ds escape
-            throw new CZEPMySQLManagerException( "timeout (" + m_iMySQLTimeout +  " ms) reached during connectivity test" );
+            throw new CZEPMySQLManagerException( "timeout (" + m_iMySQLTimeoutMS +  " ms) reached during connectivity test" );
         }
     }
     
@@ -91,7 +149,7 @@ public final class CMySQLManager
         if( !cStatementCheckDataPoint.executeQuery( ).next( ) )
         {
             //ds add the datapoint to the SQL database
-            final PreparedStatement cStatementInsertDataPoint = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `datapoints` " +
+            final PreparedStatement cStatementInsertDataPoint = m_cMySQLConnection.prepareStatement( "INSERT INTO `datapoints` " +
             		                                                                                 "(`url`, `title`, `type`, `likes`, `dislikes`, `count_comments`, `count_tags`, " +
             		                                                                                 "`is_photo`, `text_amount` ) VALUE ( ?, ?, ?, ?, ?, ?, ?, ?, ? )" );
             cStatementInsertDataPoint.setString( 1, p_cDataPoint.getURL( ).toString( ) );
@@ -103,84 +161,84 @@ public final class CMySQLManager
             cStatementInsertDataPoint.setInt( 7, p_cDataPoint.getCountTags( ) );
             cStatementInsertDataPoint.setBoolean( 8, p_cDataPoint.isPhoto( ) );
             cStatementInsertDataPoint.setDouble( 9, p_cDataPoint.getTextAmount( ) );
-            cStatementInsertDataPoint.executeUpdate( );          
+            cStatementInsertDataPoint.execute( );          
             
             //ds obtain the datapoint id
             final ResultSet cResultDataPoint = cStatementCheckDataPoint.executeQuery( );
             
             //ds this must work now
-            if( !cResultDataPoint.next( ) ){ throw new CZEPMySQLManagerException( "from DataPoint: could not establish datapoint - feature linkage" ); }
+            if( !cResultDataPoint.next( ) ){ throw new CZEPMySQLManagerException( "could not insert DataPoint" ); }
             
             //ds get the id
             final int iID_DataPoint = cResultDataPoint.getInt( "id_datapoint" );
             
             //ds add the image file to the database
-            final PreparedStatement cStatementInsertImage = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `images` ( `id_datapoint`, `data_binary` ) VALUE ( ?, ? )" );
+            final PreparedStatement cStatementInsertImage = m_cMySQLConnection.prepareStatement( "INSERT INTO `images` ( `id_datapoint`, `data_binary` ) VALUE ( ?, ? )" );
             cStatementInsertImage.setInt( 1, iID_DataPoint );
             cStatementInsertImage.setBlob( 2, new URL( p_cDataPoint.getURL( ).toString( ) ).openStream( ) );
-            cStatementInsertImage.executeUpdate( );
+            cStatementInsertImage.executeQuery( );
             
-            //ds logging last feature id
-            int iID_FeatureCurrent = _getMaxIDFromTable( "id_feature", "features" );
+            //ds logging last tag id
+            int iID_TagCurrent = _getMaxIDFromTable( "id_tag", "tags" );
             
-            //ds then add the tags to the features table
-            for( String strTag : p_cDataPoint.getTags( ) )
+            //ds then add the tags to the tags table
+            for( CTag cTag : p_cDataPoint.getTags( ) )
             {
-            	//ds for each tag check if we already have an entry in the features map
-                final PreparedStatement cStatementCheckFeatures = m_cMySQLConnection.prepareStatement( "SELECT * from `features` WHERE `value` = ( ? ) LIMIT 1" );
-                cStatementCheckFeatures.setString( 1, strTag );
+            	//ds for each tag check if we already have an entry in the tags map
+                final PreparedStatement cStatementCheckTags = m_cMySQLConnection.prepareStatement( "SELECT * from `tags` WHERE `value` = ( ? ) LIMIT 1" );
+                cStatementCheckTags.setString( 1, cTag.getValue( ) );
                 
                 //ds get the result
-                final ResultSet cResultFeature = cStatementCheckFeatures.executeQuery( );
+                final ResultSet cResultTag = cStatementCheckTags.executeQuery( );
                 
                 //ds if there is no entry yet
-                if( !cResultFeature.next( ) )
+                if( !cResultTag.next( ) )
                 {
-                	//ds add the tag to the features table
-                    final PreparedStatement cStatementInsertFeature = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `features` ( `value`, `frequency` ) VALUE ( ?, ? )" );
-                    cStatementInsertFeature.setString( 1, strTag );
-                    cStatementInsertFeature.setInt( 2, 1 );
-                    cStatementInsertFeature.executeUpdate( );
+                	//ds add the tag to the tags table
+                    final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "INSERT INTO `tags` ( `value`, `frequency` ) VALUE ( ?, ? )" );
+                    cStatementInsertTag.setString( 1, cTag.getValue( ) );
+                    cStatementInsertTag.setInt( 2, 1 );
+                    cStatementInsertTag.execute( );
                     
-                    //ds increment feature counter
-                    ++iID_FeatureCurrent;
+                    //ds increment tag counter
+                    ++iID_TagCurrent;
                 }
                 else
                 {
                 	//ds increment the frequency counter - first obtain it
-                    final int iCounter = cResultFeature.getInt( "frequency" );
+                    final int iCounter = cResultTag.getInt( "frequency" );
                     
                     //ds insert the incremented counter
-                    final PreparedStatement cStatementInsertFeature = m_cMySQLConnection.prepareStatement( "UPDATE `features` SET `frequency` = ( ? ) WHERE `value` = ( ? )" );
-                    cStatementInsertFeature.setInt( 1, iCounter+1 );
-                    cStatementInsertFeature.setString( 2, strTag );
-                    cStatementInsertFeature.executeUpdate( );                    
+                    final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "UPDATE `tags` SET `frequency` = ( ? ) WHERE `value` = ( ? )" );
+                    cStatementInsertTag.setInt( 1, iCounter+1 );
+                    cStatementInsertTag.setString( 2, cTag.getValue( ) );
+                    cStatementInsertTag.execute( );                    
                 }
                 
-                //ds now we have to create the linkage between features and datapoints over the patterns table - execute the query for the tag again
-                final ResultSet cResultFeatureID = cStatementCheckFeatures.executeQuery( );
+                //ds now we have to create the linkage between tags and datapoints over the patterns table - execute the query for the tag again
+                final ResultSet cResultTagID = cStatementCheckTags.executeQuery( );
                 
                 //ds this must work now
-                if( !cResultFeatureID.next( ) ){ throw new CZEPMySQLManagerException( "from Feature: could not establish datapoint - feature linkage" ); }
+                if( !cResultTagID.next( ) ){ throw new CZEPMySQLManagerException( "from Tag: could not establish datapoint - tag linkage" ); }
                 
-                //ds obtain the feature id
-                final int iID_Feature = cResultFeatureID.getInt( "id_feature" );
+                //ds obtain the tag id
+                final int iID_Tag = cResultTagID.getInt( "id_tag" );
                 
-                //ds establish the linkage between id_datapoint and id_feature
-                final PreparedStatement cStatementInsertLinkage = m_cMySQLConnection.prepareStatement( "INSERT IGNORE INTO `mappings` ( `id_datapoint`, `id_feature` ) VALUE ( ?, ? )" );
+                //ds establish the linkage between id_datapoint and id_tag
+                final PreparedStatement cStatementInsertLinkage = m_cMySQLConnection.prepareStatement( "INSERT INTO `mappings` ( `id_datapoint`, `id_tag` ) VALUE ( ?, ? )" );
                 cStatementInsertLinkage.setInt( 1, iID_DataPoint );
-                cStatementInsertLinkage.setInt( 2, iID_Feature );
-                cStatementInsertLinkage.executeUpdate( );
+                cStatementInsertLinkage.setInt( 2, iID_Tag );
+                cStatementInsertLinkage.execute( );
             }
             
-            //ds get current total feature number (simply the size of the mappings table)
-            final int iCurrentTotalFeatures = _getMaxIDFromTable( "id_mapping", "mappings" );
+            //ds get current total tag number (simply the size of the mappings table)
+            final int iCurrentTotalTags = _getMaxIDFromTable( "id_mapping", "mappings" );
             
             //ds open writer - locally because we want the data written in case the process dies unexpectedly
-            FileWriter writer = new FileWriter( m_strLogFileFeatureGrowth, true );
+            FileWriter writer = new FileWriter( m_strLogFileTagGrowth, true );
             
             //ds append entry
-            writer.append( iID_DataPoint + "," + iID_FeatureCurrent + "," + iCurrentTotalFeatures + "\n" );
+            writer.append( iID_DataPoint + "," + iID_TagCurrent + "," + iCurrentTotalTags + "\n" );
             
             //ds close writer
             writer.close( );
@@ -381,6 +439,76 @@ public final class CMySQLManager
         return mapDataset;
     }
     
+    //ds create feature table
+    public final void createFeatureTable( final int p_iMinimumTagFrequency ) throws SQLException, CZEPMySQLManagerException, MalformedURLException, IOException
+    {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) creating the final feature table .." );
+        
+        //ds query for the first id - select all datapoints
+        final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= 1" );
+        
+        //ds get the result
+        final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
+        
+        //ds discard counter
+        int iNumberOfDiscardedPoints = 0;
+        
+        //ds as long as we have remaining data
+        while( cResultSetDataPoint.next( ) )
+        {        
+            //ds get the datapoint
+            final CDataPoint cDataPoint = _getDataPointFromResultSet( cResultSetDataPoint );
+            
+            //ds tag ids to use
+            final Vector< Integer > vecTagIDs = new Vector< Integer >( 0 );
+            
+            //ds we now have to check the tag frequencies
+            for( CTag cTag: cDataPoint.getTags( ) )
+            {
+                //ds if the frequency is above the threshold
+                if( p_iMinimumTagFrequency < cTag.getFrequency( ) )
+                {
+                    //ds add the id
+                    vecTagIDs.add( cTag.getID( ) );
+                }
+            }
+            
+            //ds check if there was at no tag with minimum frequency fullfiled
+            if( vecTagIDs.isEmpty( ) )
+            {
+                //ds count
+                ++iNumberOfDiscardedPoints;
+                
+                //ds check next datapoint
+                continue;
+            }
+            
+            //ds get insertion query for the feature table
+            final PreparedStatement cStatementInsertFeaturePoint = m_cMySQLConnection.prepareStatement( "INSERT INTO `datapoints_10` ( `id_datapoint`, `title`, `animated`, `photo`, `text`, `liked`, `hot` ) VALUE ( ?, ?, ?, ?, ?, ?, ? )" );
+            
+            //ds determine values
+            final boolean bIsAnimated = cDataPoint.getType( ).matches( "gif" );
+            final boolean bIsPhoto    = cDataPoint.isPhoto( );
+            final boolean isText      = cDataPoint.getTextAmount( ) > m_dMinimumText;
+            final boolean isLiked     = ( double )( cDataPoint.getLikes( ) )/( cDataPoint.getDislikes( )+1  ) > m_dMinimumLikeDislikeRatio;
+            final boolean isHot       = ( double )( cDataPoint.getLikes( )+cDataPoint.getDislikes( ) )/( cDataPoint.getCountComments( )+1 ) < m_dMaximumVotesCommentsRatio;
+            
+            //ds set params
+            cStatementInsertFeaturePoint.setInt( 1, cDataPoint.getID( ) );  
+            cStatementInsertFeaturePoint.setString( 2, cDataPoint.getTitle( ) );  
+            cStatementInsertFeaturePoint.setBoolean( 3, bIsAnimated );
+            cStatementInsertFeaturePoint.setBoolean( 4, bIsPhoto );
+            cStatementInsertFeaturePoint.setBoolean( 5, isText );
+            cStatementInsertFeaturePoint.setBoolean( 6, isLiked );
+            cStatementInsertFeaturePoint.setBoolean( 7, isHot );
+
+            //ds execute
+            cStatementInsertFeaturePoint.execute( );
+        }
+        
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) feature table creation successful - discarded datapoints: " + iNumberOfDiscardedPoints );
+    }
+    
     /*ds updater function
     public void updateDataset( Map< Integer, CDataPoint > p_mapFeatureData ) throws SQLException
     {
@@ -505,9 +633,9 @@ public final class CMySQLManager
         final double dTextAmount = p_cResultSetDataPoint.getDouble( "text_amount" );
         
         //ds tag vector to be filled
-        final Vector< String > vecTags = new Vector< String >( );
+        final Vector< CTag > vecTags = new Vector< CTag >( );
         
-        //ds now retrieve the feature information (tags)
+        //ds now retrieve the tag information
         final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE `id_datapoint` = ( ? )" );
         cRetrieveMapping.setInt( 1, iID_DataPoint );
         
@@ -517,21 +645,21 @@ public final class CMySQLManager
         //ds for all the mappings
         while( cResultSetMapping.next( ) )
         {
-            //ds get feature id
-            final int iID_Feature = cResultSetMapping.getInt( "id_feature" );
+            //ds get tag id
+            final int iID_Tag = cResultSetMapping.getInt( "id_tag" );
        
-            //ds get actual feature
-            final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `features` WHERE `id_feature` = ( ? ) LIMIT 1" );
-            cRetrieveTag.setInt( 1, iID_Feature );
+            //ds get actual tag text
+            final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `id_tag` = ( ? ) LIMIT 1" );
+            cRetrieveTag.setInt( 1, iID_Tag );
             
-            //ds get the feature
+            //ds get the tag
             final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
             
             //ds if exists
             if( cResultSetTag.next( ) )
             {
                 //ds add the current tag
-                vecTags.add( cResultSetTag.getString( "value" ) );
+                vecTags.add( new CTag( iID_Tag, cResultSetTag.getString( "value" ), cResultSetTag.getInt( "frequency" ) ) );
             }
         }
         

@@ -19,7 +19,8 @@ public final class CDataPoint
     private final boolean m_bIsPhoto;
     private final double m_dTextAmount;
     
-    private final Vector< String > m_vecTags;
+    //ds tags vector
+    private final Vector< CTag > m_vecTags;
     
     //ds constructor
     public CDataPoint( final int p_iID, 
@@ -32,7 +33,7 @@ public final class CDataPoint
     		final int p_iCountTags,
     		final boolean p_bIsPhoto,
     		final double p_dTextAmount,
-    		final Vector< String > p_vecTags )
+    		final Vector< CTag > p_vecTags )
     {
         //ds set the fields
         m_iID        	 = p_iID;
@@ -76,5 +77,5 @@ public final class CDataPoint
     public final int getCountTags( ){ return m_iCountTags; }
     public final boolean isPhoto( ){ return m_bIsPhoto; }
     public final double getTextAmount( ){ return m_dTextAmount; }
-    public final Vector< String > getTags( ){ return m_vecTags; }
+    public final Vector< CTag > getTags( ){ return m_vecTags; }
 }
