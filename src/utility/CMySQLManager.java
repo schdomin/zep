@@ -473,7 +473,7 @@ public final class CMySQLManager
                 }
             }
             
-            //ds check if there was at no tag with minimum frequency fullfiled
+            //ds check if there was no tag with minimum frequency fullfiled
             if( vecTagIDs.isEmpty( ) )
             {
                 //ds count
@@ -487,6 +487,7 @@ public final class CMySQLManager
             final PreparedStatement cStatementInsertFeaturePoint = m_cMySQLConnection.prepareStatement( "INSERT INTO `datapoints_10` ( `id_datapoint`, `title`, `animated`, `photo`, `text`, `liked`, `hot` ) VALUE ( ?, ?, ?, ?, ?, ?, ? )" );
             
             //ds determine values
+            final int iID_DataPoint   = cDataPoint.getID( );
             final boolean bIsAnimated = cDataPoint.getType( ).matches( "gif" );
             final boolean bIsPhoto    = cDataPoint.isPhoto( );
             final boolean isText      = cDataPoint.getTextAmount( ) > m_dMinimumText;
@@ -494,7 +495,7 @@ public final class CMySQLManager
             final boolean isHot       = ( double )( cDataPoint.getLikes( )+cDataPoint.getDislikes( ) )/( cDataPoint.getCountComments( )+1 ) < m_dMaximumVotesCommentsRatio;
             
             //ds set params
-            cStatementInsertFeaturePoint.setInt( 1, cDataPoint.getID( ) );  
+            cStatementInsertFeaturePoint.setInt( 1, iID_DataPoint );  
             cStatementInsertFeaturePoint.setString( 2, cDataPoint.getTitle( ) );  
             cStatementInsertFeaturePoint.setBoolean( 3, bIsAnimated );
             cStatementInsertFeaturePoint.setBoolean( 4, bIsPhoto );
@@ -504,9 +505,29 @@ public final class CMySQLManager
 
             //ds execute
             cStatementInsertFeaturePoint.execute( );
+            
+            //ds loop over valid tags
+            for( final int iID_Tag: vecTagIDs )
+            {
+                //ds insertion into mappings table
+                final PreparedStatement cStatementInsertLinkage = m_cMySQLConnection.prepareStatement( "INSERT INTO `mappings_10` ( `id_datapoint`, `id_tag` ) VALUE ( ?, ? )" );
+                cStatementInsertLinkage.setInt( 1, iID_DataPoint );
+                cStatementInsertLinkage.setInt( 2, iID_Tag );
+                cStatementInsertLinkage.execute( );        
+            }
         }
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) feature table creation successful - discarded datapoints: " + iNumberOfDiscardedPoints );
+    }
+    
+    //ds log to master database
+    public final void logMaster( final String p_strUsername, final String p_strText ) throws SQLException
+    {
+        //ds simple query
+        final PreparedStatement cStatementInsertText = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_master` ( `username`, `text` ) VALUE ( ?, ? )" );
+        cStatementInsertText.setString( 1, p_strUsername );
+        cStatementInsertText.setString( 2, p_strText );
+        cStatementInsertText.execute( );
     }
     
     /*ds updater function

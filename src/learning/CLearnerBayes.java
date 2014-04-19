@@ -65,6 +65,9 @@ public final class CLearnerBayes
     //ds mysql manager
     private final CMySQLManager m_cMySQLManager;
     
+    //ds username
+    private String m_strUsername = null;
+    
     //ds constructor
     public CLearnerBayes( final CMySQLManager p_cMySQLManager )
     {        
@@ -229,6 +232,8 @@ public final class CLearnerBayes
     //ds reset function for the learner
     public final void reset( )
     {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(reset) Learner has been reset" );
+        
         //ds add magic number 0 to history to mark reset
         m_vecIDsHistory.add( 0 );
         
@@ -250,6 +255,17 @@ public final class CLearnerBayes
     public final int getNumberOfVisits( ){ return 0; }
     public final int getNumberOfLikes( ){ return m_iNumberOfLikes; }
     public final int getOperations( ){ return m_vecIDsHistory.size( ); }
+    public final String getUsername( ){ return m_strUsername; }
+    
+    //ds setters
+    public final void setUsername( final String p_strUsername )
+    {
+        //ds set username
+        m_strUsername = p_strUsername; 
+        
+        //ds log setting
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(setUsername) m_strUsername=" + m_strUsername );
+    }
     
     //ds main uses this method to check for classification needs
     public final boolean isReadyToClassify( )

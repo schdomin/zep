@@ -114,6 +114,7 @@ public final class CMain
         catch( CZEPGUIException e )
         {
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPGUIException: " + e.getMessage( ) + " - could not initialize GUI" );
+            cGUI.close( );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
             return;                  
         }
@@ -139,33 +140,71 @@ public final class CMain
             }
             catch( InterruptedException e )
             {
+                _logMaster( cLearner, cMySQLManager, "<CMain>(main) InterruptedException: " + e.getMessage( ) );
+                
                 //ds not fatal
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) InterruptedException: " + e.getMessage( ) );
             }
             catch( MalformedURLException e )
             {
+                _logMaster( cLearner, cMySQLManager, "<CMain>(main) MalformedURLException: " + e.getMessage( ) + " could not classify" );
+                
                 //ds fatal
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) MalformedURLException: " + e.getMessage( ) + " could not classify" );
+                cGUI.close( );
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
                 return; 
             }
             catch( SQLException e )
             {
+                _logMaster( cLearner, cMySQLManager, "<CMain>(main) SQLException: " + e.getMessage( ) + " could not classify" );
+                
                 //ds fatal
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) SQLException: " + e.getMessage( ) + " could not classify" );
+                cGUI.close( );
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
                 return; 
             }
             catch( CZEPMySQLManagerException e )
             {
+                _logMaster( cLearner, cMySQLManager, "<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " could not classify" );
+                
                 //ds fatal
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " could not classify" );
+                cGUI.close( );
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
                 return; 
             }
         }
         
+        //ds close GUI
+        cGUI.close( );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) ZEP terminated" );
         return;
+    }
+    
+    //ds MySQL logger
+    private final static void _logMaster( final CLearnerBayes p_cLearner, final CMySQLManager p_cMySQLManager, final String p_strInfo )
+    {
+        //ds get username
+        final String strUsername = p_cLearner.getUsername( );
+        
+        //ds if set
+        if( null != strUsername )
+        {
+            try
+            {
+                //ds log
+                p_cMySQLManager.logMaster( strUsername, p_strInfo );
+            }
+            catch( SQLException e )
+            {
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(_logException) SQLException: " + e.getMessage( ) + " could not log to MySQL master" );
+            }
+        }
+        else
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(_logException) could not log to master because of invalid username" );
+        }
     }
 }

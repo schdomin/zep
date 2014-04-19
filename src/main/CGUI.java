@@ -51,7 +51,7 @@ public final class CGUI implements ActionListener, KeyListener
     private final JPanel m_cPanelNorth       = new JPanel( );
     private final JPanel m_cPanelEast        = new JPanel( );
     private final JPanel m_cPanelSouth       = new JPanel( );
-    private final JPanel m_cPanelWest        = new JPanel( );
+    //private final JPanel m_cPanelWest        = new JPanel( );
     private final JScrollPane m_cPanelCImage = new JScrollPane( m_cLabelImage );
     
     //ds components
@@ -130,9 +130,9 @@ public final class CGUI implements ActionListener, KeyListener
         
         //ds add the panels to the frame
         m_cFrame.add( m_cPanelNorth , BorderLayout.NORTH );
-        m_cFrame.add( m_cPanelEast  , BorderLayout.EAST );
+        //m_cFrame.add( m_cPanelEast  , BorderLayout.EAST );
         m_cFrame.add( m_cPanelSouth , BorderLayout.SOUTH );
-        m_cFrame.add( m_cPanelWest  , BorderLayout.WEST );
+        //m_cFrame.add( m_cPanelWest  , BorderLayout.WEST );
         m_cFrame.add( m_cPanelCImage, BorderLayout.CENTER );
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(CGUI) Instance allocated" );
@@ -142,14 +142,15 @@ public final class CGUI implements ActionListener, KeyListener
     public void launch( ) throws CZEPGUIException
     {
         //ds allocate a dialog object to display independently
-        final JDialog cDialog = new JDialog( m_cFrame, "ZEP: Zero-Effort Procrastination", false );
+        final JDialog cDialogLoading = new JDialog( m_cFrame, "ZEP: Zero-Effort Procrastination", false );
         
         //ds set the option panel without any options
-        cDialog.setContentPane( new JOptionPane( "Loading image data please wait", JOptionPane.INFORMATION_MESSAGE, JOptionPane.DEFAULT_OPTION, null, new Object[]{}, null ) );
+        cDialogLoading.setContentPane( new JOptionPane( "Loading image data please wait", JOptionPane.INFORMATION_MESSAGE, JOptionPane.DEFAULT_OPTION, null, new Object[]{}, null ) );
         
         //ds display the dialog
-        cDialog.pack( );
-        cDialog.setVisible( true );
+        cDialogLoading.pack( );
+        cDialogLoading.setVisible( true );
+        cDialogLoading.setLocationRelativeTo( null );
         
         try
         {
@@ -165,31 +166,93 @@ public final class CGUI implements ActionListener, KeyListener
             System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(launch) Exception: " + e.getMessage( ) + " - could not fetch database" );
             
             //ds dispose loading screen
-            cDialog.removeAll( );
-            cDialog.dispose( );   
+            cDialogLoading.removeAll( );
+            cDialogLoading.dispose( );   
             
             //ds rethrow
             throw new CZEPGUIException( "GUI aborted" );
         }
         
         //ds dispose loading screen
-        cDialog.removeAll( );
-        cDialog.dispose( );
+        cDialogLoading.removeAll( );
+        cDialogLoading.dispose( );
         
         //ds register key listener
         m_cFrame.addKeyListener( this );
         
         //ds display frame for interaction
         m_cFrame.setVisible( true );  
+        m_cFrame.setLocationRelativeTo( null );
 
         //ds request focus for key strokes
         m_cFrame.requestFocus( );
+        
+        //ds show dialog to enter name
+        final String strUsername = JOptionPane.showInputDialog( m_cFrame, "Please enter your desired username: ", "ZEP: Zero-Effort Procrastination", JOptionPane.PLAIN_MESSAGE );
+        
+        //ds just check if set
+        if( null == strUsername || strUsername.isEmpty( ) )
+        {
+            //ds escape
+            throw new CZEPGUIException( "username invalid" );
+        }
+        
+        //ds username is fine to set
+        m_cLearner.setUsername( strUsername );
+        
+        try
+        {
+            //ds log successful launch
+            m_cMySQLManager.logMaster( m_cLearner.getUsername( ), "launched GUI application" );
+        }
+        catch( SQLException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(launch) SQLException: " + e.getMessage( ) + " could not log to MySQL master" );
+        }
     }
     
     //ds check if active
     public boolean isActive( )
     {
         return m_cFrame.isShowing( );
+    }
+    
+    //ds close GUI
+    public void close( )
+    {
+        //ds get the username
+        final String strUsername = m_cLearner.getUsername( );
+        
+        try
+        {
+            //ds if set
+            if( null != strUsername )
+            {
+                //ds log
+                m_cMySQLManager.logMaster( strUsername, "closed GUI application" );
+            }
+            else
+            {
+                //ds info
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(close) Closing GUI - MySQL logging not possible for invalid username" );
+            }
+        }
+        catch( SQLException e )
+        {
+            //ds log
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(close) Closing GUI - MySQL logging failed for username: " + strUsername );
+        }
+
+        //ds only if active
+        if( isActive( ) )
+        {
+            //ds dispose frame completely
+            m_cFrame.removeAll( );
+            m_cFrame.dispose( );
+        }
+        
+        //ds info
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(close) Closing of GUI complete" );
     }
   
     //ds event invoked function
@@ -215,13 +278,15 @@ public final class CGUI implements ActionListener, KeyListener
         }
         catch( SQLException e )
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPMySQLManagerException: " + e.getMessage( ) );
+            _logMaster( "<CGUI>(actionPerformed) SQLException: " + e.getMessage( ) );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) SQLException: " + e.getMessage( ) );
             
             //ds no previous image available
             JOptionPane.showMessageDialog( m_cFrame, "Could not load image from MySQL database" );            
         }
         catch( CZEPnpIException e )
         {
+            _logMaster( "<CGUI>(actionPerformed) CZEPnpIException: " + e.getMessage( ) );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPnpIException: " + e.getMessage( ) );
             
             //ds no previous image available
@@ -229,6 +294,7 @@ public final class CGUI implements ActionListener, KeyListener
         }
         catch( CZEPMySQLManagerException e )
         {
+            _logMaster( "<CGUI>(actionPerformed) CZEPMySQLManagerException: " + e.getMessage( ) );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPMySQLManagerException: " + e.getMessage( ) );
             
             //ds no previous image available
@@ -236,6 +302,7 @@ public final class CGUI implements ActionListener, KeyListener
         }
         catch( MalformedURLException e )
         {
+            _logMaster( "<CGUI>(actionPerformed) MalformedURLException: " + e.getMessage( ) );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) MalformedURLException: " + e.getMessage( ) );
             
             //ds no previous image available
@@ -243,6 +310,7 @@ public final class CGUI implements ActionListener, KeyListener
         }
         catch( CZEPEoIException e )
         {
+            _logMaster( "<CGUI>(actionPerformed) CZEPEoIException: " + e.getMessage( ) );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPEoIException: " + e.getMessage( ) );
             
             //ds no previous image available
@@ -250,6 +318,7 @@ public final class CGUI implements ActionListener, KeyListener
         }
         catch( CZEPLearnerException e )
         {
+            _logMaster( "<CGUI>(actionPerformed) CZEPLearnerException: " + e.getMessage( ) );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPLearnerException: " + e.getMessage( ) );
             
             //ds no previous image available
@@ -458,15 +527,15 @@ public final class CGUI implements ActionListener, KeyListener
         //final JPanel cPanelFlowWhitespace = new JPanel( new FlowLayout( FlowLayout.LEFT ) );
         
         //ds connect
-        cPanelTitle.add( new JLabel( " Title: " ) ); cPanelTitle.add( m_cTextFieldTitle );
+        /*cPanelTitle.add( new JLabel( " Title: " ) );*/ cPanelTitle.add( m_cTextFieldTitle );
         cPanelURL.add( new JLabel( "  URL: " ) );    cPanelURL.add( m_cTextFieldURL );
         cPanelTags.add( new JLabel( "Tags: " ) );   cPanelTags.add( m_cTextFieldTags );
         
         //ds setup the main panels
         m_cPanelNorth.setLayout( new BoxLayout( m_cPanelNorth, BoxLayout.Y_AXIS ) );
         m_cPanelNorth.setAlignmentX( Component.LEFT_ALIGNMENT );
-        m_cPanelNorth.add( cPanelURL );
-        m_cPanelNorth.add( cPanelTags );
+        //m_cPanelNorth.add( cPanelURL );
+        //m_cPanelNorth.add( cPanelTags );
         //m_cPanelNorth.add( cPanelFlowWhitespace );
         m_cPanelNorth.add( cPanelTitle );
         
@@ -494,6 +563,31 @@ public final class CGUI implements ActionListener, KeyListener
         m_cPanelSouth.add( m_cButtonDislike );
         m_cPanelSouth.add( m_cButtonLike );
         m_cPanelSouth.add( m_cButtonPrevious );   
+    }
+    
+    //ds MySQL logger
+    private final void _logMaster( final String p_strInfo )
+    {
+        //ds get username
+        final String strUsername = m_cLearner.getUsername( );
+        
+        //ds if set
+        if( null != strUsername )
+        {
+            try
+            {
+                //ds log
+                m_cMySQLManager.logMaster( strUsername, p_strInfo );
+            }
+            catch( SQLException e )
+            {
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(_logException) SQLException: " + e.getMessage( ) + " could not log to MySQL master" );
+            }
+        }
+        else
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(_logException) could not log to master because of invalid username" );
+        }
     }
 
     //ds virtuals
