@@ -42,7 +42,7 @@ public final class CMain
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowWidth=" + m_iWindowWidth );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowHeight=" + m_iWindowHeight );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLUsername=" + m_strMySQLUsername );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLPassword=" + m_strMySQLPassword );
+        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLPassword=" + m_strMySQLPassword );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLDriver=" + m_strMySQLDriver );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLServerURL=" + m_strMySQLServerURL );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
@@ -118,6 +118,20 @@ public final class CMain
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
             return;                  
         }
+        catch( SQLException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) SQLException: " + e.getMessage( ) + " - could not initialize GUI" );
+            cGUI.close( );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            return;                  
+        }
+        catch( CZEPMySQLManagerException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " - could not connect to MySQL" );
+            cGUI.close( );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            return;                  
+        }
              
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "|                                      CLASSIFICATION PHASE                                      |" );
@@ -177,8 +191,6 @@ public final class CMain
             }
         }
         
-        //ds close GUI
-        cGUI.close( );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) ZEP terminated" );
         return;
     }
@@ -199,12 +211,12 @@ public final class CMain
             }
             catch( SQLException e )
             {
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(_logException) SQLException: " + e.getMessage( ) + " could not log to MySQL master" );
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(_logMaster) SQLException: " + e.getMessage( ) + " could not log to MySQL master" );
             }
         }
         else
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(_logException) could not log to master because of invalid username" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(_logMaster) could not log to master because of empty username" );
         }
     }
 }

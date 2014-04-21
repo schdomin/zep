@@ -38,6 +38,7 @@ import utility.CDataPoint;
 import utility.CImageHandler;
 import utility.CLogger;
 import utility.CMySQLManager;
+import utility.CPattern;
 
 public final class CGUI implements ActionListener, KeyListener
 {
@@ -88,7 +89,7 @@ public final class CGUI implements ActionListener, KeyListener
     private final CMySQLManager m_cMySQLManager;
     
     //ds currently active datapoint
-    private CDataPoint m_cCurrentDataPoint = null;
+    private CPattern m_cCurrentPattern = null;
     
     //ds window information
     private final int m_iImageDisplayWidth;
@@ -139,7 +140,7 @@ public final class CGUI implements ActionListener, KeyListener
     }
     
     //ds enable display
-    public void launch( ) throws CZEPGUIException
+    public void launch( ) throws CZEPGUIException, SQLException, CZEPMySQLManagerException
     {
         //ds allocate a dialog object to display independently
         final JDialog cDialogLoading = new JDialog( m_cFrame, "ZEP: Zero-Effort Procrastination", false );
@@ -187,28 +188,44 @@ public final class CGUI implements ActionListener, KeyListener
         //ds request focus for key strokes
         m_cFrame.requestFocus( );
         
-        //ds show dialog to enter name
-        final String strUsername = JOptionPane.showInputDialog( m_cFrame, "Please enter your desired username: ", "ZEP: Zero-Effort Procrastination", JOptionPane.PLAIN_MESSAGE );
+        //ds initialize with empty string
+        String strUsername = "";
         
-        //ds just check if set
-        if( null == strUsername || strUsername.isEmpty( ) )
+        //ds as long as it is not set
+        while( strUsername.isEmpty( ) )
         {
-            //ds escape
-            throw new CZEPGUIException( "username invalid" );
+            //ds show dialog to enter name
+            strUsername = JOptionPane.showInputDialog( m_cFrame, "Please enter your desired username: ", "ZEP: Zero-Effort Procrastination", JOptionPane.PLAIN_MESSAGE );
+            
+            //ds check if null (cancelled by user)
+            if( null == strUsername )
+            {
+                //ds escape
+                throw new CZEPGUIException( "cancelled username setting dialog" );
+            }
+            
+            //ds check if already taken
+            if( !strUsername.isEmpty( ) && !m_cMySQLManager.isUserAvailable( strUsername ) )
+            {
+                //ds inform
+                JOptionPane.showMessageDialog( m_cFrame, "Username already taken - please try again" );
+                
+                //ds keep looping
+                strUsername = "";
+            }
         }
         
         //ds username is fine to set
         m_cLearner.setUsername( strUsername );
+
+        //ds set user active
+        m_cMySQLManager.setActiveUser( strUsername );
         
-        try
-        {
-            //ds log successful launch
-            m_cMySQLManager.logMaster( m_cLearner.getUsername( ), "launched GUI application" );
-        }
-        catch( SQLException e )
-        {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(launch) SQLException: " + e.getMessage( ) + " could not log to MySQL master" );
-        }
+        //ds and log
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(launch) Login of: [" + strUsername + "] successful" );
+        
+        //ds log successful launch
+        _logMaster( "<CGUI>(launch) launched GUI application" );
     }
     
     //ds check if active
@@ -220,27 +237,28 @@ public final class CGUI implements ActionListener, KeyListener
     //ds close GUI
     public void close( )
     {
-        //ds get the username
+        //ds get username
         final String strUsername = m_cLearner.getUsername( );
         
-        try
-        {
-            //ds if set
-            if( null != strUsername )
-            {
-                //ds log
-                m_cMySQLManager.logMaster( strUsername, "closed GUI application" );
-            }
-            else
-            {
-                //ds info
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(close) Closing GUI - MySQL logging not possible for invalid username" );
-            }
-        }
-        catch( SQLException e )
+        //ds if username is set
+        if( null != strUsername )
         {
             //ds log
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(close) Closing GUI - MySQL logging failed for username: " + strUsername );
+            _logMaster( "<CGUI>(close) closed GUI application" );
+            
+            try
+            {
+                //ds remove user from active list
+                m_cMySQLManager.removeActiveUser( strUsername );
+                
+                //ds log
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(close) Logout of: [" + strUsername + "] successful" );
+            }
+            catch( Exception e )
+            {
+                //ds could not remove
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(close) Could not remove user: [" + strUsername + "] from active users list - please check database" );
+            }
         }
 
         //ds only if active
@@ -264,8 +282,8 @@ public final class CGUI implements ActionListener, KeyListener
         try
         {
             //ds determine event (big if/else tree)
-            if(      cSource == m_cButtonLike ){ _displayImage( m_cLearner.getNextDataPoint( CLearnerBayes.ELearnerLabel.LIKE, m_cCurrentDataPoint ) ); }
-            else if( cSource == m_cButtonDislike ){ _displayImage( m_cLearner.getNextDataPoint( CLearnerBayes.ELearnerLabel.DISLIKE, m_cCurrentDataPoint ) ); }
+            if(      cSource == m_cButtonLike ){ _displayImage( m_cLearner.getNextDataPoint( CLearnerBayes.ELearnerLabel.LIKE, m_cCurrentPattern ) ); }
+            else if( cSource == m_cButtonDislike ){ _displayImage( m_cLearner.getNextDataPoint( CLearnerBayes.ELearnerLabel.DISLIKE, m_cCurrentPattern ) ); }
             else if( cSource == m_cButtonPrevious ){ _displayImage( m_cLearner.getPreviousDataPoint( ) ); }
             else if( cSource == m_cButtonReset )
             {
@@ -342,45 +360,42 @@ public final class CGUI implements ActionListener, KeyListener
             //ds notify
             System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(keyPressed) Caught escape signal - shutting down GUI" );
             
-            //ds dispose frame
-            m_cFrame.dispose( );
+            //ds call close
+            close( );
         }
     }
     
     //ds update GUI with new image
-    private void _displayImage( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
+    private void _displayImage( final CPattern p_cPattern ) throws CZEPMySQLManagerException
     {
         //ds update active datapoint
-        m_cCurrentDataPoint = p_cDataPoint;
+        m_cCurrentPattern = p_cPattern;
         
-    	//ds get the extension
-    	final String strExtension = p_cDataPoint.getType( );
-    	
     	//ds if we got a gif we take the image as is
-    	if( strExtension.matches( "gif" ) )
+    	if( p_cPattern.isAnimated( ) )
     	{
     		//ds set the icon
-    		m_cLabelImage.setIcon( m_cMySQLManager.getImageIcon( p_cDataPoint ) );
+    		m_cLabelImage.setIcon( m_cMySQLManager.getImageIcon( p_cPattern ) );
     	}
     	else
     	{
     		//ds set the image to the GUI field (resized)
-    		m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( m_cMySQLManager.getBufferedImage( p_cDataPoint ), m_iImageDisplayWidth, m_iImageDisplayHeight ) ) );
+    		m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( m_cMySQLManager.getBufferedImage( p_cPattern ), m_iImageDisplayWidth, m_iImageDisplayHeight ) ) );
     	}
         
         //ds update image info
-        m_cTextFieldTitle.setText( p_cDataPoint.getTitle( ) );
-        m_cTextFieldURL.setText( p_cDataPoint.getURL( ).toString( ) );
-        m_cTextFieldTags.setText( p_cDataPoint.getTags( ).toString( ) );
+        m_cTextFieldTitle.setText( p_cPattern.getTitle( ) );
+        //m_cTextFieldURL.setText( p_cPattern.getURL( ).toString( ) );
+        m_cTextFieldTags.setText( p_cPattern.getTags( ).toString( ) );
         
         //ds datapoint properties
-        m_cTextFieldImageID.setText( Integer.toString( p_cDataPoint.getID( ) ) );
-        m_cTextFieldType.setText( p_cDataPoint.getType( ) );
-        m_cTextFieldLikes.setText( Integer.toString( p_cDataPoint.getLikes( ) ) );
-        m_cTextFieldDislikes.setText( Integer.toString( p_cDataPoint.getDislikes( ) ) );
+        m_cTextFieldImageID.setText( Integer.toString( p_cPattern.getID( ) ) );
+        //m_cTextFieldType.setText( p_cPattern.getType( ) );
+        //m_cTextFieldLikes.setText( Integer.toString( p_cPattern.getLikes( ) ) );
+        //m_cTextFieldDislikes.setText( Integer.toString( p_cPattern.getDislikes( ) ) );
         
         //ds check if gif
-        if( strExtension.matches( "gif" ) )
+        if( p_cPattern.isAnimated( ) )
         {
             //ds no detection done
             m_cTextFieldTextPercent.setText( "" );
@@ -389,13 +404,13 @@ public final class CGUI implements ActionListener, KeyListener
         else
         {
             //ds get the values
-            m_cTextFieldTextPercent.setText( String.format( "%3.2f", p_cDataPoint.getTextAmount( ) ) );
-            m_cTextFieldIsPhoto.setText( Boolean.toString( p_cDataPoint.isPhoto( ) ) );            
+            m_cTextFieldTextPercent.setText( Boolean.toString( p_cPattern.isAnimated( ) ) );
+            m_cTextFieldIsPhoto.setText( Boolean.toString( p_cPattern.isPhoto( ) ) );            
         }
         
         
-        m_cTextFieldComments.setText( Integer.toString( p_cDataPoint.getCountComments( ) ) );
-        m_cTextFieldTagsCount.setText( Integer.toString( p_cDataPoint.getCountTags( ) ) );
+        //m_cTextFieldComments.setText( Integer.toString( p_cPattern.getCountComments( ) ) );
+        //m_cTextFieldTagsCount.setText( Integer.toString( p_cPattern.getCountTags( ) ) );
         
         //ds learner
         m_cTextFieldVisits.setText( Integer.toString( m_cLearner.getNumberOfVisits( ) ) );
@@ -581,12 +596,12 @@ public final class CGUI implements ActionListener, KeyListener
             }
             catch( SQLException e )
             {
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(_logException) SQLException: " + e.getMessage( ) + " could not log to MySQL master" );
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(_logMaster) SQLException: " + e.getMessage( ) + " could not log to MySQL master" );
             }
         }
         else
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(_logException) could not log to master because of invalid username" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(_logMaster) could not log to master because of empty username" );
         }
     }
 

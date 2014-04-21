@@ -99,7 +99,18 @@ public final class CMySQLManager
         try
         {
             //ds create feature table
-            cMySQLManager.createFeatureTable( 10 );
+            cMySQLManager.createPatternsTable( 10, 1 );
+            
+        }
+        catch( Exception e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) Exception: " + e.getMessage( ) + " - failed" );           
+        }
+        try
+        {
+            //ds compute probabilities
+            cMySQLManager.computeProbabilities( 10 );
+            
         }
         catch( Exception e )
         {
@@ -318,22 +329,59 @@ public final class CMySQLManager
         //ds return the elements
         return vecDataPoints;
     }
-    
-    //ds access function: single datapoint by feature
-    public CDataPoint getDataPointByFeature( final String p_strTag )
+
+    //ds fetches a set of patterns
+    public final Vector< CPattern > getPatternsByIDRange( final int p_iIDStart, final int p_iIDEnd, final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
     {
-        //ds TODO
-        return null;
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getPatternsByIDRange) Received fetch request for: [" + p_iIDStart + "," + p_iIDEnd + "]" );
+        
+      //ds table
+        final String strTablePatterns = "patterns_" + Integer.toString( p_iTagCutoffFrequency );
+        
+        //ds get max id in database
+        final int iIDMaximum = _getMaxIDFromTable( "id_pattern", strTablePatterns );
+        
+        //ds check if we want to access to much
+        if( p_iIDEnd > iIDMaximum )
+        {
+            //ds escape
+            throw new CZEPMySQLManagerException( "index: " + p_iIDEnd + " is out of range: " + iIDMaximum );            
+        }
+            
+        //ds target number of elements to fetch
+        final int iFetchSize = p_iIDEnd-p_iIDStart+1;
+            
+        //ds vector to fill
+        final Vector< CPattern > vecPatterns = new Vector< CPattern >( iFetchSize );
+        
+        //ds query for the id
+        final PreparedStatement cRetrievePattern = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTablePatterns + "` WHERE `id_pattern` >= ( ? )" );
+        cRetrievePattern.setInt( 1, p_iIDStart );
+        
+        //ds get the result
+        final ResultSet cResultSetPattern = cRetrievePattern.executeQuery( );
+        
+        //ds as long as we have remaining data and do not exceed the fetch size
+        while( cResultSetPattern.next( ) && iFetchSize > vecPatterns.size( ) )
+        {
+            //ds add the datapoint to the vector
+            vecPatterns.add( _getPatternFromResultSet( cResultSetPattern, p_iTagCutoffFrequency ) );        
+        }
+        
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataPointsByIDRange) Number of points fetched: " + vecPatterns.size( ) );
+        
+        //ds return the elements
+        return vecPatterns;
     }
     
     //ds regular image access
-    public final BufferedImage getBufferedImage( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
+    public final BufferedImage getBufferedImage( final CPattern p_cPattern ) throws CZEPMySQLManagerException
     {
         try
         {
             //ds grab the image row
             final PreparedStatement cRetrieveImage = m_cMySQLConnection.prepareStatement( "SELECT * FROM `images` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
-            cRetrieveImage.setInt( 1, p_cDataPoint.getID( ) );
+            cRetrieveImage.setInt( 1, p_cPattern.getID( ) );
 
             //ds execute the statement
             final ResultSet cResultSetImage = cRetrieveImage.executeQuery( );
@@ -349,27 +397,27 @@ public final class CMySQLManager
             }
             else
             {
-                throw new CZEPMySQLManagerException( "could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
+                throw new CZEPMySQLManagerException( "could not load image from MySQL database - ID: " + p_cPattern.getID( ) );
             }
         }
         catch( SQLException e )
         {
-            throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
+            throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cPattern.getID( ) );
         }
         catch( IOException e )
         {
-            throw new CZEPMySQLManagerException( "IOException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
+            throw new CZEPMySQLManagerException( "IOException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cPattern.getID( ) );
         }
     }
 
     //ds gif image access
-    public final ImageIcon getImageIcon( final CDataPoint p_cDataPoint ) throws CZEPMySQLManagerException
+    public final ImageIcon getImageIcon( final CPattern p_cPattern ) throws CZEPMySQLManagerException
     {
         try
         {
             //ds grab the image row
             final PreparedStatement cRetrieveImage = m_cMySQLConnection.prepareStatement( "SELECT * FROM `images` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
-            cRetrieveImage.setInt( 1, p_cDataPoint.getID( ) );
+            cRetrieveImage.setInt( 1, p_cPattern.getID( ) );
         
             //ds execute the statement
             final ResultSet cResultSetImage = cRetrieveImage.executeQuery( );
@@ -388,12 +436,12 @@ public final class CMySQLManager
             }
             else
             {
-                throw new CZEPMySQLManagerException( "could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );
+                throw new CZEPMySQLManagerException( "could not load image from MySQL database - ID: " + p_cPattern.getID( ) );
             }
         }
         catch( SQLException e )
         {
-            throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cDataPoint.getID( ) );    		
+            throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cPattern.getID( ) );    		
         }
     }
     
@@ -439,13 +487,54 @@ public final class CMySQLManager
         return mapDataset;
     }
     
-    //ds create feature table
-    public final void createFeatureTable( final int p_iMinimumTagFrequency ) throws SQLException, CZEPMySQLManagerException, MalformedURLException, IOException
+    //ds getter for the probability map
+    public final Map< Integer, Double > getProbabilityMap( final int p_iTagCutoffFrequency ) throws CZEPMySQLManagerException, SQLException
     {
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) creating the final feature table .." );
+        //ds table
+        final String strTableProbabilities = "probabilities_" + Integer.toString( p_iTagCutoffFrequency );
+        
+        //ds get number of entries
+        final int iMapSize = _getMaxIDFromTable( "id_probability", strTableProbabilities );
+        
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getProbabilityMap) received fetch request - table size: " + iMapSize );
+        
+        //ds map to fill
+        Map< Integer, Double > mapProbabilities = new HashMap< Integer, Double >( iMapSize );
+        
+        //ds import the information from the db
+        final PreparedStatement cRetrieveProbability = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTableProbabilities + "` WHERE `id_probability` >= 1" );
+        
+        //ds get the result
+        final ResultSet cResultSetProbability = cRetrieveProbability.executeQuery( );
+        
+        //ds as long as we have remaining data
+        while( cResultSetProbability.next( ) )
+        {
+            //ds add to the map
+            mapProbabilities.put( cResultSetProbability.getInt( "id_feature" ), cResultSetProbability.getDouble( "value" ) );
+        }
+        
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getProbabilityMap) download complete fetched elements: " + mapProbabilities.size( ) );
+        
+        //ds return the map
+        return mapProbabilities;
+    }
+    
+    //ds create feature table
+    public final void createPatternsTable( final int p_iTagCutoffFrequency, final int p_iID_DataPointStart ) throws SQLException, IOException
+    {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) creating the final feature table starting at ID: " + p_iID_DataPointStart );
+        
+        //ds get input as string
+        final String strMinimumTagFrequency = Integer.toString( p_iTagCutoffFrequency );
+        
+        //ds table names
+        final String strTablePatterns      = "patterns_" + strMinimumTagFrequency;
+        //final String strTableMappings      = "mappings_" + strMinimumTagFrequency;
         
         //ds query for the first id - select all datapoints
-        final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= 1" );
+        final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= ( ? )" );
+        cRetrieveDataPoint.setInt( 1, p_iID_DataPointStart );
         
         //ds get the result
         final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
@@ -466,7 +555,7 @@ public final class CMySQLManager
             for( CTag cTag: cDataPoint.getTags( ) )
             {
                 //ds if the frequency is above the threshold
-                if( p_iMinimumTagFrequency < cTag.getFrequency( ) )
+                if( p_iTagCutoffFrequency < cTag.getFrequency( ) )
                 {
                     //ds add the id
                     vecTagIDs.add( cTag.getID( ) );
@@ -484,7 +573,7 @@ public final class CMySQLManager
             }
             
             //ds get insertion query for the feature table
-            final PreparedStatement cStatementInsertFeaturePoint = m_cMySQLConnection.prepareStatement( "INSERT INTO `datapoints_10` ( `id_datapoint`, `title`, `animated`, `photo`, `text`, `liked`, `hot` ) VALUE ( ?, ?, ?, ?, ?, ?, ? )" );
+            final PreparedStatement cStatementInsertFeaturePoint = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + strTablePatterns + "` ( `id_datapoint`, `title`, `animated`, `photo`, `text`, `liked`, `hot` ) VALUE ( ?, ?, ?, ?, ?, ?, ? )" );
             
             //ds determine values
             final int iID_DataPoint   = cDataPoint.getID( );
@@ -506,28 +595,207 @@ public final class CMySQLManager
             //ds execute
             cStatementInsertFeaturePoint.execute( );
             
-            //ds loop over valid tags
+            /*ds loop over valid tags
             for( final int iID_Tag: vecTagIDs )
             {
                 //ds insertion into mappings table
-                final PreparedStatement cStatementInsertLinkage = m_cMySQLConnection.prepareStatement( "INSERT INTO `mappings_10` ( `id_datapoint`, `id_tag` ) VALUE ( ?, ? )" );
+                final PreparedStatement cStatementInsertLinkage = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + strTableMappings + "` ( `id_datapoint`, `id_tag` ) VALUE ( ?, ? )" );
                 cStatementInsertLinkage.setInt( 1, iID_DataPoint );
                 cStatementInsertLinkage.setInt( 2, iID_Tag );
                 cStatementInsertLinkage.execute( );        
-            }
+            }*/
         }
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) feature table creation successful - discarded datapoints: " + iNumberOfDiscardedPoints );
     }
     
+    //ds compute probabilities
+    public final void computeProbabilities( final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
+    {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(computeProbabilities) computing probabilities for cutoff frequency: " +  p_iTagCutoffFrequency );
+        
+        //ds get input as string
+        final String strMinimumTagFrequency = Integer.toString( p_iTagCutoffFrequency );
+        
+        //ds table names
+        final String strTableProbabilities = "probabilities_" + strMinimumTagFrequency;
+        final String strTablePatterns      = "patterns_" + strMinimumTagFrequency;
+        
+        //ds get total values
+        final int iTotalNumberOfPatterns = _getMaxIDFromTable( "id_datapoint", strTablePatterns );
+        
+        //ds simple feature counters
+        int iCounterAnimated = 0;
+        int iCounterPhoto    = 0;
+        int iCounterText     = 0;
+        int iCounterLiked    = 0;
+        int iCounterHot      = 0;
+        
+        //ds we have to loop through the whole datapoint table
+        final PreparedStatement cRetrievePattern = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTablePatterns + "` WHERE `id_datapoint` >= 1" );     
+        
+        //ds get the result
+        final ResultSet cResultSetDataPoint = cRetrievePattern.executeQuery( );
+        
+        //ds as long as we have remaining data
+        while( cResultSetDataPoint.next( ) )
+        {
+            //ds extract the data separately (for readability)
+            final boolean bIsAnimated = cResultSetDataPoint.getBoolean( "animated" );
+            final boolean bIsPhoto    = cResultSetDataPoint.getBoolean( "photo" );
+            final boolean bIsText     = cResultSetDataPoint.getBoolean( "text" );
+            final boolean bIsLiked    = cResultSetDataPoint.getBoolean( "liked" );
+            final boolean bIsHot      = cResultSetDataPoint.getBoolean( "hot" );
+            
+            //ds set the counters if they match
+            if( bIsAnimated ){ ++iCounterAnimated; }
+            if( bIsPhoto ){ ++iCounterPhoto; }
+            if( bIsText ){ ++iCounterText; }
+            if( bIsLiked ){ ++iCounterLiked; }
+            if( bIsHot ){ ++iCounterHot; }
+        }
+        
+        //ds compute final probabilities
+        final double dProbabilityAnimated = ( double )iCounterAnimated/iTotalNumberOfPatterns;
+        final double dProbabilityPhoto    = ( double )iCounterPhoto/iTotalNumberOfPatterns;
+        final double dProbabilityText     = ( double )iCounterText/iTotalNumberOfPatterns;
+        final double dProbabilityLiked    = ( double )iCounterLiked/iTotalNumberOfPatterns;
+        final double dProbabilityHot      = ( double )iCounterHot/iTotalNumberOfPatterns;
+        
+        //ds write the values to the database
+        final PreparedStatement cStatementInsertValues = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + strTableProbabilities + "` ( `id_feature`, `value`, `description` ) " +
+        		                                                                              "VALUES ( ?, ?, ? ), ( ?, ?, ? ), ( ?, ?, ? ), ( ?, ?, ? ), ( ?, ?, ? )" );
+        cStatementInsertValues.setInt( 1, -1 );
+        cStatementInsertValues.setDouble( 2, dProbabilityAnimated );
+        cStatementInsertValues.setString( 3, "animated" );
+        cStatementInsertValues.setInt( 4, -2 );
+        cStatementInsertValues.setDouble( 5, dProbabilityPhoto );
+        cStatementInsertValues.setString( 6, "photo" );
+        cStatementInsertValues.setInt( 7, -3 );
+        cStatementInsertValues.setDouble( 8, dProbabilityText );
+        cStatementInsertValues.setString( 9, "text" );
+        cStatementInsertValues.setInt( 10, -4 );
+        cStatementInsertValues.setDouble( 11, dProbabilityLiked );
+        cStatementInsertValues.setString( 12, "liked" );
+        cStatementInsertValues.setInt( 13, -5 );
+        cStatementInsertValues.setDouble( 14, dProbabilityHot );
+        cStatementInsertValues.setString( 15, "hot" );
+        
+        //ds commit
+        cStatementInsertValues.execute( );
+        
+        //ds vector with tags
+        Vector< CTag > vecTags = new Vector< CTag >( 0 ); 
+        
+        //ds total number of occurrences
+        int iTotalNumberOfTags = 0;
+        
+        //ds retrieve all tags fullfilling the cutoff
+        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
+        cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        
+        //ds get the result
+        final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
+        
+        //ds as long as we have remaining data
+        while( cResultSetTag.next( ) )
+        {
+            //ds get frequency information
+            final int iFrequency = cResultSetTag.getInt( "frequency" );
+            
+            //ds add the tag
+            vecTags.add( new CTag( cResultSetTag.getInt( "id_tag" ), cResultSetTag.getString( "value" ), iFrequency ) );
+            
+            //ds sum up total
+            iTotalNumberOfTags += iFrequency;
+        }
+        
+        //ds now create probability entries
+        for( CTag cTag: vecTags )
+        {
+            //ds derive probability from entry
+            final double dProbabilityTag = ( double )cTag.getFrequency( )/iTotalNumberOfTags;
+            
+            //ds insert tag probability
+            final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + strTableProbabilities + "` ( `id_feature`, `value`, `description` ) VALUES ( ?, ?, ? )" );
+            cStatementInsertTag.setInt( 1, cTag.getID( ) );
+            cStatementInsertTag.setDouble( 2, dProbabilityTag );
+            cStatementInsertTag.setString( 3, cTag.getValue( ) );
+            
+            //ds commit
+            cStatementInsertTag.execute( );
+        }
+        
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(computeProbabilities) computation complete" );
+    }
+    
     //ds log to master database
     public final void logMaster( final String p_strUsername, final String p_strText ) throws SQLException
     {
-        //ds simple query
+        //ds simple insertion
         final PreparedStatement cStatementInsertText = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_master` ( `username`, `text` ) VALUE ( ?, ? )" );
         cStatementInsertText.setString( 1, p_strUsername );
         cStatementInsertText.setString( 2, p_strText );
         cStatementInsertText.execute( );
+    }
+    
+    //ds set active user
+    public final void setActiveUser( final String p_strUsername ) throws SQLException, CZEPMySQLManagerException
+    {
+        //ds check if available
+        if( isUserAvailable( p_strUsername ) )
+        {
+            //ds simple insertion
+            final PreparedStatement cStatementAddUser = m_cMySQLConnection.prepareStatement( "INSERT INTO `active_users` ( `username` ) VALUE ( ? )" );
+            cStatementAddUser.setString( 1, p_strUsername );
+            cStatementAddUser.execute( );
+        }
+        else
+        {
+            //ds escape
+            throw new CZEPMySQLManagerException( "could not set username to active users" );         
+        }
+    }
+    
+    //ds remove active user
+    public final void removeActiveUser( final String p_strUsername ) throws SQLException, CZEPMySQLManagerException
+    {
+        //ds check if not available (user has to be active)
+        if( !isUserAvailable( p_strUsername ) )
+        {
+            //ds simple insertion
+            final PreparedStatement cStatementRemoveUser = m_cMySQLConnection.prepareStatement( "DELETE FROM `active_users` WHERE ( `username` ) = ( ? )" );
+            cStatementRemoveUser.setString( 1, p_strUsername );
+            cStatementRemoveUser.execute( );
+        }
+        else
+        {
+            //ds escape
+            throw new CZEPMySQLManagerException( "could not remove user from active list - no matching entry present" );         
+        }
+    }
+    
+    //ds check for active user
+    public final boolean isUserAvailable( final String p_strUsername ) throws SQLException
+    {
+        //ds query for the username
+        final PreparedStatement cRetrieveUser = m_cMySQLConnection.prepareStatement( "SELECT * FROM `active_users` WHERE `username` = ( ? ) LIMIT 1" );
+        cRetrieveUser.setString( 1, p_strUsername );
+        
+        //ds get the result
+        final ResultSet cResultSetUser = cRetrieveUser.executeQuery( );
+        
+        //ds if we got a result the user is active - we cannot take this name
+        if( cResultSetUser.next( ) )
+        {
+            //ds blocked
+            return false;
+        }
+        else
+        {
+            //ds available
+            return true;
+        }
     }
     
     /*ds updater function
@@ -636,7 +904,7 @@ public final class CMySQLManager
         return iMaxID;
     }
     
-    //ds helper for dataelement retrieval
+    //ds helper for data element retrieval
     private final CDataPoint _getDataPointFromResultSet( final ResultSet p_cResultSetDataPoint ) throws SQLException, MalformedURLException
     {
         //ds get the ID
@@ -686,5 +954,62 @@ public final class CMySQLManager
         
         //ds return the datapoint
         return new CDataPoint( iID_DataPoint, new URL( strURL ), strTitle, strType, iLikes, iDislikes, iCountComments, iCountTags, bIsPhoto, dTextAmount, vecTags );
+    }
+    
+    //ds helper for pattern retrieval
+    private final CPattern _getPatternFromResultSet( final ResultSet p_cResultSetDataPoint, final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
+    {
+        //ds get the ID
+        final int iID_DataPoint = p_cResultSetDataPoint.getInt( "id_datapoint" );
+        
+        //ds extract the data separately (for readability)
+        final String strTitle     = p_cResultSetDataPoint.getString( "title" );
+        final boolean bIsAnimated = p_cResultSetDataPoint.getBoolean( "animated" );
+        final boolean bIsPhoto    = p_cResultSetDataPoint.getBoolean( "photo" );
+        final boolean bIsText     = p_cResultSetDataPoint.getBoolean( "text" );
+        final boolean bIsLiked    = p_cResultSetDataPoint.getBoolean( "liked" );
+        final boolean bIsHot      = p_cResultSetDataPoint.getBoolean( "hot" );
+        
+        //ds tag vector to be filled
+        final Vector< CTag > vecTags = new Vector< CTag >( );
+        
+        //ds now retrieve the tag information
+        final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE `id_datapoint` = ( ? )" );
+        cRetrieveMapping.setInt( 1, iID_DataPoint );
+        
+        //ds get the mapping
+        final ResultSet cResultSetMapping = cRetrieveMapping.executeQuery( );
+        
+        //ds for all the mappings
+        while( cResultSetMapping.next( ) )
+        {
+            //ds get tag id
+            final int iID_Tag = cResultSetMapping.getInt( "id_tag" );
+       
+            //ds get actual tag text
+            final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `id_tag` = ( ? ) AND `frequency` > ( ? ) LIMIT 1" );
+            cRetrieveTag.setInt( 1, iID_Tag );
+            cRetrieveTag.setInt( 2, p_iTagCutoffFrequency );
+            
+            //ds get the tag
+            final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
+            
+            //ds if exists
+            if( cResultSetTag.next( ) )
+            {
+                //ds add the current tag
+                vecTags.add( new CTag( iID_Tag, cResultSetTag.getString( "value" ), cResultSetTag.getInt( "frequency" ) ) );
+            }
+        }
+        
+        //ds check if we got an error - no tags found for the current cutoff
+        if( vecTags.isEmpty( ) )
+        {
+            //ds escape
+            throw new CZEPMySQLManagerException( "invalid datapoint: " + iID_DataPoint + " - no tag with minimum frequency: " + p_iTagCutoffFrequency );                  
+        }
+        
+        //ds return the datapoint
+        return new CPattern( iID_DataPoint, strTitle, bIsAnimated, bIsPhoto, bIsText, bIsLiked, bIsHot, vecTags );
     }
 }
