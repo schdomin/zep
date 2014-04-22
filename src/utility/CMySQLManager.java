@@ -100,7 +100,6 @@ public final class CMySQLManager
         {
             //ds create feature table
             cMySQLManager.createPatternsTable( 10, 1 );
-            
         }
         catch( Exception e )
         {
@@ -109,16 +108,23 @@ public final class CMySQLManager
         try
         {
             //ds compute probabilities
-            cMySQLManager.computeProbabilities( 10 );
-            
+            cMySQLManager.createTagsTable( 10 );
         }
         catch( Exception e )
         {
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) Exception: " + e.getMessage( ) + " - failed" );
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) aborted" );
-            return;             
+        }
+        try
+        {
+            //ds compute probabilities
+            cMySQLManager.computeProbabilities( 10 );
+        }
+        catch( Exception e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) Exception: " + e.getMessage( ) + " - failed" ); 
         }
         
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) terminated" ); 
         return;
     }
     
@@ -555,17 +561,37 @@ public final class CMySQLManager
         return mapProbabilities;
     }
     
+    //ds get all tag incidies
+    public final Vector< Integer > getTagIDs( final int p_iTagCutoffFrequency ) throws SQLException
+    {
+        //ds retrieve all tags fullfilling the cutoff
+        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
+        cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        
+        //ds get the result
+        final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
+        
+        //ds indices vector
+        Vector< Integer > vecIDs = new Vector< Integer >( 0 );
+        
+        //ds as long as we have remaining data
+        while( cResultSetTag.next( ) )
+        {     
+            //ds add the element
+            vecIDs.add( cResultSetTag.getInt( "id_tag" ) );
+        }
+        
+        //ds return all ids
+        return vecIDs;
+    }
+    
     //ds create feature table
     public final void createPatternsTable( final int p_iTagCutoffFrequency, final int p_iID_DataPointStart ) throws SQLException, IOException
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) creating the final feature table starting at ID: " + p_iID_DataPointStart );
         
-        //ds get input as string
-        final String strMinimumTagFrequency = Integer.toString( p_iTagCutoffFrequency );
-        
         //ds table names
-        final String strTablePatterns      = "patterns_" + strMinimumTagFrequency;
-        //final String strTableMappings      = "mappings_" + strMinimumTagFrequency;
+        final String strTablePatterns = "patterns_" + Integer.toString( p_iTagCutoffFrequency );
         
         //ds query for the first id - select all datapoints
         final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= ( ? )" );
@@ -629,19 +655,38 @@ public final class CMySQLManager
 
             //ds execute
             cStatementInsertFeaturePoint.execute( );
-            
-            /*ds loop over valid tags
-            for( final int iID_Tag: vecTagIDs )
-            {
-                //ds insertion into mappings table
-                final PreparedStatement cStatementInsertLinkage = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + strTableMappings + "` ( `id_datapoint`, `id_tag` ) VALUE ( ?, ? )" );
-                cStatementInsertLinkage.setInt( 1, iID_DataPoint );
-                cStatementInsertLinkage.setInt( 2, iID_Tag );
-                cStatementInsertLinkage.execute( );        
-            }*/
         }
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) feature table creation successful - discarded datapoints: " + iNumberOfDiscardedPoints );
+    }
+    
+    //ds create tags table
+    public final void createTagsTable( final int p_iTagCutoffFrequency ) throws SQLException, IOException
+    {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(computeProbabilities) creating tags table for cutoff frequency: " +  p_iTagCutoffFrequency );
+        
+        //ds table names
+        final String strTableTags = "tags_" + Integer.toString( p_iTagCutoffFrequency );
+        
+        //ds retrieve all tags fullfilling the cutoff
+        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
+        cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        
+        //ds get the result
+        final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
+        
+        //ds as long as we have remaining data
+        while( cResultSetTag.next( ) )
+        {
+            //ds write the entry to the new tags table
+            final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + strTableTags + "` ( `id_tag`, `value`, `frequency` ) VALUES ( ?, ?, ? )" );
+            cStatementInsertTag.setInt( 1, cResultSetTag.getInt( "id_tag" ) );
+            cStatementInsertTag.setString( 2, cResultSetTag.getString( "value" ) );
+            cStatementInsertTag.setInt( 3, cResultSetTag.getInt( "frequency" ) );
+            
+            //ds commit
+            cStatementInsertTag.execute( );
+        }
     }
     
     //ds compute probabilities
@@ -774,13 +819,35 @@ public final class CMySQLManager
         cStatementInsertText.execute( );
     }
     
+    //ds log to learner database
+    public final void logPattern( final String p_strUsername, final CPattern p_cPattern, final boolean p_bIsRandom, final boolean p_bIsLiked ) throws SQLException
+    {
+        //ds simple insertion
+        final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_learner` ( `username`, `id_datapoint`, `random`, `liked` ) VALUE ( ?, ?, ?, ? )" );
+        cStatementInsertPattern.setString( 1, p_strUsername );
+        cStatementInsertPattern.setInt( 2, p_cPattern.getID( ) );
+        cStatementInsertPattern.setBoolean( 3, p_bIsRandom );
+        cStatementInsertPattern.setBoolean( 4, p_bIsLiked );
+        cStatementInsertPattern.execute( );
+    }
+    
+    //ds log to learner database
+    public final void dropPattern( final String p_strUsername, final CPattern p_cPattern ) throws SQLException
+    {
+        //ds simple deletion
+        final PreparedStatement cStatementRemovePattern = m_cMySQLConnection.prepareStatement( "DELETE FROM `log_learner` WHERE ( `username` ) = ( ? ) AND ( `id_datapoint` ) = ( ? )" );
+        cStatementRemovePattern.setString( 1, p_strUsername );
+        cStatementRemovePattern.setInt( 2, p_cPattern.getID( ) );
+        cStatementRemovePattern.execute( );
+    }
+    
     //ds set active user
     public final void setActiveUser( final String p_strUsername ) throws SQLException, CZEPMySQLManagerException
     {
         //ds check if available
         if( isUserAvailable( p_strUsername ) )
         {
-            //ds simple insertion
+            //ds simple deletion
             final PreparedStatement cStatementAddUser = m_cMySQLConnection.prepareStatement( "INSERT INTO `active_users` ( `username` ) VALUE ( ? )" );
             cStatementAddUser.setString( 1, p_strUsername );
             cStatementAddUser.execute( );

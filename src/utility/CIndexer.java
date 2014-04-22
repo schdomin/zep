@@ -42,6 +42,13 @@ public final class CIndexer
         return m_lstAvailableIDs.get( m_iIndexNumberOfDrafts );
     }
     
+    //ds reset the draft position
+    public final void reset( )
+    {
+        //ds next draft will be the first element
+        m_iIndexNumberOfDrafts = -1;
+    }
+    
     //ds creates an index vector from m to n with shuffled entries
     private final List< Integer > _getRandomIndexList( int p_iM, int p_iN )
     {

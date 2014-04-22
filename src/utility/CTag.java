@@ -18,7 +18,7 @@ public final class CTag
     }
     
     //ds getters
-    protected final int getID( ){ return m_iID; }
-    protected final String getValue( ){ return m_strValue; }
-    protected final int getFrequency( ){ return m_iFrequency; }
+    public final int getID( ){ return m_iID; }
+    public final String getValue( ){ return m_strValue; }
+    public final int getFrequency( ){ return m_iFrequency; }
 }

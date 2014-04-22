@@ -3,6 +3,7 @@ package learning;
 import java.net.MalformedURLException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +13,9 @@ import utility.CIndexer;
 //ds custom imports
 import utility.CLogger;
 import utility.CMySQLManager;
+import utility.CPair;
 import utility.CPattern;
+import utility.CTag;
 import exceptions.CZEPEoIException;
 import exceptions.CZEPLearnerException;
 import exceptions.CZEPMySQLManagerException;
@@ -23,51 +26,48 @@ public final class CLearnerBayes
     //ds enums
     public static enum ELearnerLabel{ LIKE, DISLIKE }
 
-    //ds datapool elements
-    private Vector< CPattern > m_vecDataPool          = new Vector< CPattern >( 100 );
-    private List< CPattern > m_lstSelectionPoolActive = new ArrayList< CPattern >( 10 );
-    private List< CPattern > m_lstSelectionPoolNext   = new ArrayList< CPattern >( 10 );
-    private final int m_iSizeSelection                = 10;
-    private final int m_iSizeDatapool                 = 100;
-    private int m_iSelectionCounter                   = 0;
-    private int m_iFetchCounter                       = 0;
+    //ds data pool control elements
+    private final int m_iSizeSelection = 10;
+    private final int m_iSizeDatapool  = 100;
+    private int m_iSelectionCounter    = 0;
+    private int m_iFetchCounter        = 0;
+    
+    //ds pools
+    private Vector< CPattern > m_vecDataPool          = null;
+    private List< CPattern > m_lstSelectionPoolActive = null;
+    private List< CPattern > m_lstSelectionPoolNext   = null;
     
     //ds random sample frequency - every n times (for 1 there is no classification done forever)
     private final int m_iIntervalRandomSample = 5;
-    
+    private boolean m_bIsRandomPhaseActive    = false;
     
     //ds simple communication with main
     private boolean m_bIsReadyToClassify = false;
     private boolean m_bIsClassifying     = false;
 
-    //ds probabilities map: [id][value] (e.g. liked has id: -4, a tag has always the same id as id_tag)
-    Map< Integer, Double > m_mapProbabilities = new HashMap< Integer, Double >( 0 );
+    //ds absolute probabilities map: [id][value] (e.g. liked has id: -4, a tag has always the same id as id_tag)
+    Map< Integer, Double > m_mapAbsoluteProbabilities = null;
     
     //ds cutoff frequency
     final int m_iTagCutoffFrequency = 10;
-    
-    
-    
-    
-    
-    //ds likelihoods
-    private double m_dLikelinessPhotograph = 0.0; private int m_iCounterLikesPhotograph = 0; private int m_iCounterDislikesPhotograph = 0;
-    private double m_dLikelinessText       = 0.0;
-    
-    
-    
-    
 
+    //ds counters 
+    private int m_iCounterLikes         = 0;
+    private int m_iCounterDislikes      = 0;
+    private int m_iCounterLikesAnimated = 0; private int m_iCounterLikesNotAnimated = 0;
+    private int m_iCounterLikesPhoto    = 0; private int m_iCounterLikesNotPhoto    = 0;
+    private int m_iCounterLikesText     = 0; private int m_iCounterLikesNotText     = 0;
+    private int m_iCounterLikesLiked    = 0; private int m_iCounterLikesNotLiked    = 0;
+    private int m_iCounterLikesHot      = 0; private int m_iCounterLikesNotHot      = 0;
     
-    //ds vector with picked IDs and complete pick history
-    //private Vector< Integer > m_vecIDsPicked  = new Vector< Integer >( 0 );
+    //ds counter for different tags: [id][counter] - gets initialized with 0
+    private Map< Integer, Integer > m_mapCounterLikesTag = null;
+    
+    //ds vector with complete pick history
     private Vector< Integer > m_vecIDsHistory = new Vector< Integer >( 0 );
-    
     
     //ds statistics: this vector keeps track of the LIKE/DISLIKE/.. sequence format: [id_datapoint][label]
     private Map< Integer, ELearnerLabel > m_mapLabels  = new HashMap< Integer, ELearnerLabel >( 0 );
-    private int m_iNumberOfLikes    = 0;
-    private int m_iNumberOfDislikes = 0;
     
     //ds mysql manager
     private final CMySQLManager m_cMySQLManager;
@@ -78,15 +78,14 @@ public final class CLearnerBayes
     //ds username
     private String m_strUsername = null;
     
+    //ds number of patterns
+    private int m_iNumberOfPatterns = 0;
+    
     //ds constructor
     public CLearnerBayes( final CMySQLManager p_cMySQLManager )
     {        
         //ds setup the manager
         m_cMySQLManager = p_cMySQLManager;
-        
-        //ds clean vectors
-        //m_vecIDsPicked.clear( );
-        m_vecIDsHistory.clear( );
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(CLearnerBayes) Instance allocated" );
     }
@@ -105,10 +104,26 @@ public final class CLearnerBayes
         }
         
         //ds get probabilities
-        m_mapProbabilities = m_cMySQLManager.getProbabilityMap( m_iTagCutoffFrequency );
+        m_mapAbsoluteProbabilities = m_cMySQLManager.getProbabilityMap( m_iTagCutoffFrequency );
+        
+        //ds get the available tag ids
+        final Vector< Integer > vecTagIDs = m_cMySQLManager.getTagIDs( m_iTagCutoffFrequency );
+        
+        //ds allocate counters map
+        m_mapCounterLikesTag = new HashMap< Integer, Integer >( vecTagIDs.size( ) );
+        
+        //ds add all the ids to our hashmap
+        for( Integer iID: vecTagIDs )
+        {
+            //ds set the current counter to 0
+            m_mapCounterLikesTag.put( iID, 0 );
+        }
+        
+        //ds get number of patterns
+        m_iNumberOfPatterns = m_cMySQLManager.getNumberOfPatterns( m_iTagCutoffFrequency );
         
         //ds initialize indexer to pick patterns
-        m_cIndexer = new CIndexer( m_cMySQLManager.getNumberOfPatterns( m_iTagCutoffFrequency ) );
+        m_cIndexer = new CIndexer( m_iNumberOfPatterns );
     }
     
     //ds simple getter - does not change the request counter for an update cycle
@@ -122,10 +137,10 @@ public final class CLearnerBayes
     }
     
     //ds returns the next image
-    public final CPattern getNextDataPoint( final ELearnerLabel p_eFlag, final CPattern p_cLastDataPoint ) throws CZEPEoIException, MalformedURLException, CZEPMySQLManagerException, SQLException, CZEPLearnerException
+    public final CPattern getNextPattern( final ELearnerLabel p_eFlag, final CPattern p_cLastPattern ) throws CZEPEoIException, MalformedURLException, CZEPMySQLManagerException, SQLException, CZEPLearnerException
     {
         //ds get the id
-        final int iIDCurrentImage = p_cLastDataPoint.getID( );
+        final int iIDCurrentImage = p_cLastPattern.getID( );
         
         //ds save the flag for the last image
         m_mapLabels.put( iIDCurrentImage, p_eFlag );
@@ -134,18 +149,40 @@ public final class CLearnerBayes
         if( ELearnerLabel.LIKE == p_eFlag )
         {
             //ds increase counter
-            ++m_iNumberOfLikes;
+            ++m_iCounterLikes;
             
-            //ds if it was a photograph
-            if( p_cLastDataPoint.isPhoto( ) ){ ++m_iCounterLikesPhotograph; }
+            //ds specifics
+            if( p_cLastPattern.isAnimated( ) ){ ++m_iCounterLikesAnimated; }
+            else                              { ++m_iCounterLikesNotAnimated; }
+            if( p_cLastPattern.isPhoto( ) )   { ++m_iCounterLikesPhoto; }
+            else                              { ++m_iCounterLikesNotPhoto; }
+            if( p_cLastPattern.isText( ) )    { ++m_iCounterLikesText; }
+            else                              { ++m_iCounterLikesNotText; }
+            if( p_cLastPattern.isLiked( ) )   { ++m_iCounterLikesLiked; }
+            else                              { ++m_iCounterLikesNotLiked; }
+            if( p_cLastPattern.isHot( ) )     { ++m_iCounterLikesHot; }
+            else                              { ++m_iCounterLikesNotHot; }
+            
+            //ds and for each tag
+            for( CTag cTag: p_cLastPattern.getTags( ) )
+            {
+                //ds get tag id
+                final int iIDTag = cTag.getID( ); 
+                
+                //ds increment entry by 1
+                m_mapCounterLikesTag.put( iIDTag, m_mapCounterLikesTag.get( iIDTag )+1 );
+            }
+            
+            //ds log to learner
+            m_cMySQLManager.logPattern( m_strUsername, p_cLastPattern, m_bIsRandomPhaseActive, true );
         }
         else if( ELearnerLabel.DISLIKE == p_eFlag )
         {
             //ds increase counter
-            ++m_iNumberOfDislikes;
+            ++m_iCounterDislikes;
             
-            //ds if it was a photograph
-            if( p_cLastDataPoint.isPhoto( ) ){ ++m_iCounterDislikesPhotograph; }
+            //ds log to learner
+            m_cMySQLManager.logPattern( m_strUsername, p_cLastPattern, m_bIsRandomPhaseActive, false );
         }
         
         //ds register pick
@@ -181,7 +218,7 @@ public final class CLearnerBayes
     }
     
     //ds returns the previous image - does not change the request counter for an update cycle
-    public final CPattern getPreviousDataPoint( ) throws CZEPnpIException, MalformedURLException, CZEPMySQLManagerException, SQLException
+    public final CPattern getPreviousPattern( ) throws CZEPnpIException, MalformedURLException, CZEPMySQLManagerException, SQLException
     {
         //ds check if there is a previous image available (means at least 2 images picked by GUI)
         if( 0 < m_iSelectionCounter )
@@ -195,9 +232,44 @@ public final class CLearnerBayes
             //ds get the label for the last action
             final ELearnerLabel eLabel = m_mapLabels.get( iPreviousID );
             
-            //ds decrease according counter
-            if(         ELearnerLabel.LIKE == eLabel ){ --m_iNumberOfLikes; }
-            else if( ELearnerLabel.DISLIKE == eLabel ){ --m_iNumberOfDislikes; }   	    
+            //ds get the actual pattern
+            final CPattern cPattern = m_lstSelectionPoolActive.get( m_iSelectionCounter );
+            
+            //ds decrease according counters
+            if( ELearnerLabel.LIKE == eLabel )
+            {
+                //ds decrease counter
+                --m_iCounterLikes; 
+                
+                //ds specifics
+                if( cPattern.isAnimated( ) ){ --m_iCounterLikesAnimated; }
+                else                        { --m_iCounterLikesNotAnimated; }
+                if( cPattern.isPhoto( ) )   { --m_iCounterLikesPhoto; }
+                else                        { --m_iCounterLikesNotPhoto; }
+                if( cPattern.isText( ) )    { --m_iCounterLikesText; }
+                else                        { --m_iCounterLikesNotText; }
+                if( cPattern.isLiked( ) )   { --m_iCounterLikesLiked; }
+                else                        { --m_iCounterLikesNotLiked; }
+                if( cPattern.isHot( ) )     { --m_iCounterLikesHot; }
+                else                        { --m_iCounterLikesNotHot; }
+                
+                //ds and for each tag
+                for( CTag cTag: cPattern.getTags( ) )
+                {
+                    //ds get tag id
+                    final int iIDTag = cTag.getID( ); 
+                    
+                    //ds decrement entry by 1
+                    m_mapCounterLikesTag.put( iIDTag, m_mapCounterLikesTag.get( iIDTag )-1 );
+                }
+            }
+            else if( ELearnerLabel.DISLIKE == eLabel )
+            {
+                --m_iCounterDislikes;
+            }   	    
+            
+            //ds remove entry from mysql
+            m_cMySQLManager.dropPattern( m_strUsername, cPattern );
             
             //ds remove entry from the map
             m_mapLabels.remove( iPreviousID );
@@ -205,8 +277,8 @@ public final class CLearnerBayes
             //ds register pick
             m_vecIDsHistory.add( iPreviousID );
             
-            //ds return the according datapoint
-            return m_lstSelectionPoolActive.get( m_iSelectionCounter );
+            //ds return the pattern
+            return cPattern;
         }
         else
         {
@@ -218,9 +290,6 @@ public final class CLearnerBayes
     //ds loads the initial dataset
     public final void fetchInitialDataPool( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException, CZEPEoIException
     {       
-        //ds make sure the datapool is empty
-        m_vecDataPool.clear( );
-        
         //ds get datapoints from id 1 to selection size+pool size for the initialization
         m_vecDataPool = _getPatterns( m_iSizeDatapool+m_iSizeSelection );
         
@@ -230,35 +299,46 @@ public final class CLearnerBayes
         
         //ds now remove the selection from the datapool
         m_vecDataPool.subList( 0, 2*m_iSizeSelection ).clear( );
+        
+        //ds activate random phase
+        m_bIsRandomPhaseActive = true;
     }
     
     //ds reset function for the learner
     public final void reset( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException, CZEPEoIException
     {
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(reset) Learner has been reset" );
-        
         //ds add magic number 0 to history to mark reset
         m_vecIDsHistory.add( 0 );
         
         //ds reset datapool structures
         m_iSelectionCounter = 0;
         
-        //ds and labels
-        m_mapLabels.clear( );
+        //ds reset counters 
+        m_iCounterLikes         = 0;
+        m_iCounterDislikes      = 0;
+        m_iCounterLikesAnimated = 0;
+        m_iCounterLikesPhoto    = 0;
+        m_iCounterLikesText     = 0;
+        m_iCounterLikesLiked    = 0;
+        m_iCounterLikesHot      = 0;
         
-        //ds reset internals
-        m_iNumberOfLikes    = 0;
-        m_iNumberOfDislikes = 0;
+        //ds reset indexer
+        m_cIndexer.reset( );
+        
+        //ds clear labels
+        m_mapLabels.clear( );
         
         //ds reset datapools
         fetchInitialDataPool( );
-        
+
+        //ds info
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(reset) Learner has been reset" );
         _logMaster( "<CLearnerBayes>(reset) reset learning process" );
     }
     
     //ds statistic
     public final int getNumberOfVisits( ){ return 0; }
-    public final int getNumberOfLikes( ){ return m_iNumberOfLikes; }
+    public final int getNumberOfLikes( ){ return m_iCounterLikes; }
     public final int getOperations( ){ return m_vecIDsHistory.size( ); }
     public final String getUsername( ){ return m_strUsername; }
     
@@ -305,6 +385,9 @@ public final class CLearnerBayes
         {
             System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Fetching Random Sample .." );  
             
+            //ds activate random phase
+            m_bIsRandomPhaseActive = true;
+            
             //ds update next selection pool with random samples
             m_lstSelectionPoolNext = _getPatterns( m_iSizeSelection );
         }
@@ -312,13 +395,19 @@ public final class CLearnerBayes
         {
             System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Fetching .." ); 
             
+            //ds deactivate random phase
+            m_bIsRandomPhaseActive = false;
+            
             //ds fetch new data
             m_vecDataPool.addAll( _getPatterns( m_iSizeSelection ) );
             
-            //ds TODO fancy Bayes operations
+            //ds fancy Bayes operations starting
             System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Classifying .." ); 
             
-            //ds update next selection pool with the classified best images
+            //ds classify the patterns and obtain a sorted version
+            m_vecDataPool = _classifyPatterns( m_vecDataPool );
+            
+            //ds update next selection pool with the images classified best (starting at the beginning of the datapool)
             m_lstSelectionPoolNext = new ArrayList< CPattern >( m_vecDataPool.subList( 0, m_iSizeSelection ) );   
             
             //ds remove selection from data pool
@@ -372,6 +461,137 @@ public final class CLearnerBayes
         ++m_iFetchCounter;
         
         //ds return the vector
+        return vecPatterns;
+    }
+    
+    //ds classifies the given patterns
+    private final Vector< CPattern > _classifyPatterns( final Vector< CPattern > p_vecPatterns )
+    {
+        //ds conditional probabilities
+        final double dProbabilityLike              = 0.5 + ( double )( m_iCounterLikes-m_iCounterDislikes )/( 2*m_iNumberOfPatterns );
+        final double dProbabilityAnimatedIfLike    = ( double )m_iCounterLikesAnimated/m_iNumberOfPatterns;
+        final double dProbabilityNotAnimatedIfLike = ( double )m_iCounterLikesNotAnimated/m_iNumberOfPatterns;
+        final double dProbabilityPhotoIfLike       = ( double )m_iCounterLikesPhoto/m_iNumberOfPatterns;
+        final double dProbabilityNotPhotoIfLike    = ( double )m_iCounterLikesNotPhoto/m_iNumberOfPatterns;
+        final double dProbabilityTextIfLike        = ( double )m_iCounterLikesText/m_iNumberOfPatterns;
+        final double dProbabilityNotTextIfLike     = ( double )m_iCounterLikesNotText/m_iNumberOfPatterns;
+        final double dProbabilityLikedIfLike       = ( double )m_iCounterLikesLiked/m_iNumberOfPatterns;
+        final double dProbabilityNotLikedIfLike    = ( double )m_iCounterLikesNotLiked/m_iNumberOfPatterns;
+        final double dProbabilityHotIfLike         = ( double )m_iCounterLikesHot/m_iNumberOfPatterns;
+        final double dProbabilityNotHotIfLike      = ( double )m_iCounterLikesNotHot/m_iNumberOfPatterns; 
+        
+        //ds absolute probabilities
+        final double dProbabilityAnimated    = m_mapAbsoluteProbabilities.get( -1 );
+        final double dProbabilityNotAnimated = 1-m_mapAbsoluteProbabilities.get( -1 );
+        final double dProbabilityPhoto       = m_mapAbsoluteProbabilities.get( -2 );
+        final double dProbabilityNotPhoto    = 1-m_mapAbsoluteProbabilities.get( -2 );
+        final double dProbabilityText        = m_mapAbsoluteProbabilities.get( -3 );
+        final double dProbabilityNotText     = 1-m_mapAbsoluteProbabilities.get( -3 );
+        final double dProbabilityLiked       = m_mapAbsoluteProbabilities.get( -4 );
+        final double dProbabilityNotLiked    = 1-m_mapAbsoluteProbabilities.get( -4 );
+        final double dProbabilityHot         = m_mapAbsoluteProbabilities.get( -5 );
+        final double dProbabilityNotHot      = 1-m_mapAbsoluteProbabilities.get( -5 );
+        
+        //ds vector to sort patterns by probability
+        Vector< CPair< Double, CPattern > > vecPatternsWithProbabilities = new Vector< CPair< Double, CPattern > >( p_vecPatterns.size( ) );
+        
+        //ds for each pattern
+        for( CPattern cPattern: p_vecPatterns )
+        {
+            //ds probabilities to compute
+            double dNominator   = 1.0;
+            double dDenominator = 1.0;
+            
+            //ds check which case we have
+            if( cPattern.isAnimated( ) )
+            {
+                dNominator   *= dProbabilityAnimatedIfLike;
+                dDenominator *= dProbabilityAnimated;
+            }
+            else
+            {
+                dNominator   *= dProbabilityNotAnimatedIfLike;
+                dDenominator *= dProbabilityNotAnimated;
+            }
+            
+            if( cPattern.isPhoto( ) )
+            {
+                dNominator   *= dProbabilityPhotoIfLike;                
+                dDenominator *= dProbabilityPhoto;
+            }
+            else
+            {
+                dNominator   *= dProbabilityNotPhotoIfLike;
+                dDenominator *= dProbabilityNotPhoto;
+            }
+            
+            if( cPattern.isText( ) )
+            {
+                dNominator   *= dProbabilityTextIfLike;
+                dDenominator *= dProbabilityText;
+            }
+            else
+            {
+                dNominator   *= dProbabilityNotTextIfLike;
+                dDenominator *= dProbabilityNotText;
+            }
+            
+            if( cPattern.isLiked( ) )
+            {
+                dNominator   *= dProbabilityLikedIfLike;
+                dDenominator *= dProbabilityLiked;
+            }
+            else
+            {
+                dNominator   *= dProbabilityNotLikedIfLike;
+                dDenominator *= dProbabilityNotLiked;
+            }
+            
+            if( cPattern.isHot( ) )
+            {
+                dNominator   *= dProbabilityHotIfLike;
+                dDenominator *= dProbabilityHot;
+            }
+            else
+            {
+                dNominator   *= dProbabilityNotHotIfLike;
+                dDenominator *= dProbabilityNotHot;
+            }
+            
+            //ds sum for the probability of tags (since they are from a limited pool)
+            double dProbabilityTags = 0.0;
+
+            //ds now for the tags
+            for( CTag cTag: cPattern.getTags( ) )
+            {
+                //ds tag id
+                final int iIDTag = cTag.getID( );
+                
+                dNominator       *= ( double )m_mapCounterLikesTag.get( iIDTag )/m_iCounterLikes;
+                dProbabilityTags += m_mapAbsoluteProbabilities.get( iIDTag );
+            }
+            
+            //ds update denominator
+            dDenominator *= dProbabilityTags;
+
+            //ds set the entry to the map
+            vecPatternsWithProbabilities.add( CPair.of( ( dNominator*dProbabilityLike )/dDenominator, cPattern ) );         
+        }
+        
+        //ds we now sort the vector
+        Collections.sort( vecPatternsWithProbabilities );
+        
+        //ds sorted pattern vector to return
+        Vector< CPattern > vecPatterns = new Vector< CPattern >( vecPatternsWithProbabilities.size( ) );
+        
+        //ds add all elements to the return vector
+        for( CPair< Double, CPattern > cPair: vecPatternsWithProbabilities )
+        {
+            //ds add only the pattern
+            vecPatterns.add( cPair.second );
+        }
+   
+        //ds return the sorted patterns
         return vecPatterns;
     }
 }

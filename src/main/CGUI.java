@@ -285,9 +285,9 @@ public final class CGUI implements ActionListener, KeyListener
         try
         {
             //ds determine event (big if/else tree)
-            if(      cSource == m_cButtonLike ){ _displayImage( m_cLearner.getNextDataPoint( CLearnerBayes.ELearnerLabel.LIKE, m_cCurrentPattern ) ); }
-            else if( cSource == m_cButtonDislike ){ _displayImage( m_cLearner.getNextDataPoint( CLearnerBayes.ELearnerLabel.DISLIKE, m_cCurrentPattern ) ); }
-            else if( cSource == m_cButtonPrevious ){ _displayImage( m_cLearner.getPreviousDataPoint( ) ); }
+            if(      cSource == m_cButtonLike ){ _displayImage( m_cLearner.getNextPattern( CLearnerBayes.ELearnerLabel.LIKE, m_cCurrentPattern ) ); }
+            else if( cSource == m_cButtonDislike ){ _displayImage( m_cLearner.getNextPattern( CLearnerBayes.ELearnerLabel.DISLIKE, m_cCurrentPattern ) ); }
+            else if( cSource == m_cButtonPrevious ){ _displayImage( m_cLearner.getPreviousPattern( ) ); }
             else if( cSource == m_cButtonReset )
             {
                 //ds reset the learning process
@@ -447,6 +447,9 @@ public final class CGUI implements ActionListener, KeyListener
     //ds component setup
     private void _setComponents( )
     {
+        //ds scroll speed of panel
+        m_cPanelCImage.getVerticalScrollBar( ).setUnitIncrement( 25 );
+        
         //ds register the buttons
         m_cButtonReset.addActionListener( this );
         m_cButtonReset.addKeyListener( this );
