@@ -149,6 +149,16 @@ public final class CMySQLManager
         return ( 0 == _getMaxIDFromTable( "id_datapoint", "datapoints" ) );
     }
     
+    //ds get pattern number
+    public final int getNumberOfPatterns( final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
+    {
+        //ds table
+        final String strTablePatterns = "patterns_" + Integer.toString( p_iTagCutoffFrequency );
+        
+        //ds max id is zero for empty table
+        return _getMaxIDFromTable( "id_pattern", strTablePatterns );
+    }
+    
     //ds insert datapoint
     public final void insertDataPoint( final CDataPoint p_cDataPoint ) throws SQLException, CZEPMySQLManagerException, MalformedURLException, IOException
     {
@@ -282,7 +292,7 @@ public final class CMySQLManager
         }
     }
     
-    //ds fetches a set of datapoints
+    /*ds fetches a set of datapoints
     public final Vector< CDataPoint > getDataPointsByIDRange( final int p_iIDStart, final int p_iIDEnd ) throws SQLException, MalformedURLException, CZEPMySQLManagerException
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataPointsByIDRange) Received fetch request for: [" + p_iIDStart + "," + p_iIDEnd + "]" );
@@ -328,9 +338,9 @@ public final class CMySQLManager
         
         //ds return the elements
         return vecDataPoints;
-    }
+    }*/
 
-    //ds fetches a set of patterns
+    /*ds fetches a set of patterns
     public final Vector< CPattern > getPatternsByIDRange( final int p_iIDStart, final int p_iIDEnd, final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getPatternsByIDRange) Received fetch request for: [" + p_iIDStart + "," + p_iIDEnd + "]" );
@@ -372,6 +382,31 @@ public final class CMySQLManager
         
         //ds return the elements
         return vecPatterns;
+    }*/
+    
+    //ds fetches a single pattern
+    public final CPattern getPatternByID( final int p_iID, final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
+    {
+        //ds table
+        final String strTablePatterns = "patterns_" + Integer.toString( p_iTagCutoffFrequency );
+        
+        //ds query for the id
+        final PreparedStatement cRetrievePattern = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTablePatterns + "` WHERE `id_pattern` = ( ? ) LIMIT 1" );
+        cRetrievePattern.setInt( 1, p_iID );
+        
+        //ds get the result
+        final ResultSet cResultSetPattern = cRetrievePattern.executeQuery( );
+        
+        //ds if the call succeeded
+        if( cResultSetPattern.next( ) )
+        {
+            //ds add the datapoint to the vector
+            return _getPatternFromResultSet( cResultSetPattern, p_iTagCutoffFrequency );        
+        }
+        else
+        {
+            throw new CZEPMySQLManagerException( "could not load pattern from MySQL database - ID: " + p_iID );
+        }
     }
     
     //ds regular image access
@@ -445,7 +480,7 @@ public final class CMySQLManager
         }
     }
     
-    //ds access function: multiple datapoints
+    /*ds access function: multiple datapoints
     public final Map< Integer, CDataPoint > getDataset( final int p_iMaximumNumberOfDataPoints ) throws SQLException, MalformedURLException
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) received fetch request - start downloading .." );
@@ -485,7 +520,7 @@ public final class CMySQLManager
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) added : " + iNumberOfDataPoints + " DataPoints" );
         
         return mapDataset;
-    }
+    }*/
     
     //ds getter for the probability map
     public final Map< Integer, Double > getProbabilityMap( final int p_iTagCutoffFrequency ) throws CZEPMySQLManagerException, SQLException

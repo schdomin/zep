@@ -91,9 +91,9 @@ public final class CGUI implements ActionListener, KeyListener
     //ds currently active datapoint
     private CPattern m_cCurrentPattern = null;
     
-    //ds window information
-    private final int m_iImageDisplayWidth;
-    private final int m_iImageDisplayHeight;
+    //ds required for smooth first image display
+    final int m_iWindowWidth;
+    final int m_iWindowHeight;
     
     //ds constructor
     public CGUI( final CLearnerBayes p_cLearner, final CMySQLManager p_cMySQLManager, final int p_iWindowWidth, final int p_iWindowHeight )
@@ -104,9 +104,9 @@ public final class CGUI implements ActionListener, KeyListener
         //ds and MySQL manager
         m_cMySQLManager = p_cMySQLManager;
         
-        //ds set the window properties
-        m_iImageDisplayWidth  = p_iWindowWidth-200;
-        m_iImageDisplayHeight = p_iWindowHeight-200;
+        //ds set constants
+        m_iWindowWidth  = p_iWindowWidth;
+        m_iWindowHeight = p_iWindowHeight;
         
         //ds configure the frame
         m_cFrame.setSize( p_iWindowWidth, p_iWindowHeight );
@@ -159,7 +159,7 @@ public final class CGUI implements ActionListener, KeyListener
             m_cLearner.fetchInitialDataPool( );
     	
             //ds try to get the image for first display
-            _displayImage( m_cLearner.getFirstDataPoint( ) );
+            _displayInitialImage( m_cLearner.getFirstDataPoint( ) );
         }
         catch( Exception e )
         {
@@ -226,6 +226,9 @@ public final class CGUI implements ActionListener, KeyListener
         
         //ds log successful launch
         _logMaster( "<CGUI>(launch) launched GUI application" );
+        
+        //ds request focus for key strokes
+        m_cFrame.requestFocus( );
     }
     
     //ds check if active
@@ -360,8 +363,9 @@ public final class CGUI implements ActionListener, KeyListener
             //ds notify
             System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(keyPressed) Caught escape signal - shutting down GUI" );
             
-            //ds call close
-            close( );
+            //ds escape gui
+            m_cFrame.removeAll( );
+            m_cFrame.dispose( );
         }
     }
     
@@ -380,8 +384,30 @@ public final class CGUI implements ActionListener, KeyListener
     	else
     	{
     		//ds set the image to the GUI field (resized)
-    		m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( m_cMySQLManager.getBufferedImage( p_cPattern ), m_iImageDisplayWidth, m_iImageDisplayHeight ) ) );
+    		m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( m_cMySQLManager.getBufferedImage( p_cPattern ), m_cPanelCImage.getWidth( )-5, m_cPanelCImage.getHeight( )-5 ) ) );
     	}
+        
+        //ds update image info
+        m_cTextFieldTitle.setText( p_cPattern.getTitle( ) );
+    }
+    
+    //ds update GUI with new image
+    private void _displayInitialImage( final CPattern p_cPattern ) throws CZEPMySQLManagerException
+    {
+        //ds update active datapoint
+        m_cCurrentPattern = p_cPattern;
+        
+        //ds if we got a gif we take the image as is
+        if( p_cPattern.isAnimated( ) )
+        {
+            //ds set the icon
+            m_cLabelImage.setIcon( m_cMySQLManager.getImageIcon( p_cPattern ) );
+        }
+        else
+        {
+            //ds set the image to the GUI field (resized)
+            m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( m_cMySQLManager.getBufferedImage( p_cPattern ), m_iWindowWidth-5, m_iWindowHeight-125 ) ) );
+        }
         
         //ds update image info
         m_cTextFieldTitle.setText( p_cPattern.getTitle( ) );

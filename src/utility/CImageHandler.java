@@ -23,6 +23,9 @@ import exceptions.CZEPConversionException;
 
 public abstract class CImageHandler
 {
+    //ds maximum height to width ratio to rescale
+    final static double m_dMaximumRescaleRatio = 3.0;
+    
     public final static BufferedImage getResizedImage( BufferedImage p_cImage, final int p_iWindowWidth, final int p_iWindowHeight )
     {
         //ds get size information
@@ -33,8 +36,8 @@ public abstract class CImageHandler
         final double dRatioWidth  = ( double ) iWidthImage/p_iWindowWidth;
         final double dRatioHeight = ( double ) iHeightImage/p_iWindowHeight;
         
-        //ds don't scale for ratios above 3.0
-         if( 3.0 < dRatioWidth || 3.0 < dRatioHeight ){ return p_cImage; }
+        //ds don't scale for ratios above the defined threshold
+         if( m_dMaximumRescaleRatio < dRatioWidth || m_dMaximumRescaleRatio < dRatioHeight ){ return p_cImage; }
         
         //ds check which side we have to scale
         if( dRatioWidth > dRatioHeight )

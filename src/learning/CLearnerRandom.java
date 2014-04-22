@@ -71,10 +71,10 @@ public final class CLearnerRandom
         else
         {
         	//ds obtain the complete dataset from the database
-        	m_mapDataset = m_cMySQLManager.getDataset( 100 );
+        	//m_mapDataset = m_cMySQLManager.getDataset( 100 );
         	
         	//ds initialize the available indexes
-        	m_vecImageIDsAvailable.addAll( CIndexer.getIndexVector( 1, m_mapDataset.size( ) ) );
+        	//m_vecImageIDsAvailable.addAll( CIndexer.getIndexVector( 1, m_mapDataset.size( ) ) );
         }
     }
     
@@ -164,7 +164,7 @@ public final class CLearnerRandom
     public void reset( )
     {
         //ds get a fresh index vector
-        m_vecImageIDsAvailable = CIndexer.getIndexVector( 1, m_mapDataset.size( ) );
+        //m_vecImageIDsAvailable = CIndexer.getIndexVector( 1, m_mapDataset.size( ) );
         
         //ds and clear the picked one
         m_vecImageIDsPicked.clear( );

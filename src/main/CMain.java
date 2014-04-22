@@ -189,8 +189,19 @@ public final class CMain
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
                 return; 
             }
+            catch( CZEPEoIException e )
+            {
+                _logMaster( cLearner, cMySQLManager, "<CMain>(main) CZEPEoIException: " + e.getMessage( ) + " could not classify" );
+                
+                //ds fatal
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPEoIException: " + e.getMessage( ) + " could not classify" );
+                cGUI.close( );
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+                return; 
+            }
         }
         
+        cGUI.close( );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) ZEP terminated" );
         return;
     }
