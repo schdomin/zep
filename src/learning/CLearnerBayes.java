@@ -78,8 +78,9 @@ public final class CLearnerBayes
     //ds username
     private String m_strUsername = null;
     
-    //ds number of patterns
-    private int m_iNumberOfPatterns = 0;
+    //ds total numbers
+    private int m_iNumberOfPatterns                   = 0;
+    private Map< Integer, Integer > m_mapNumbersOfTag = null;
     
     //ds constructor
     public CLearnerBayes( final CMySQLManager p_cMySQLManager )
@@ -119,8 +120,9 @@ public final class CLearnerBayes
             m_mapCounterLikesTag.put( iID, 0 );
         }
         
-        //ds get number of patterns
+        //ds get number of patterns and tags
         m_iNumberOfPatterns = m_cMySQLManager.getNumberOfPatterns( m_iTagCutoffFrequency );
+        m_mapNumbersOfTag   = m_cMySQLManager.getNumbersOfTag( m_iTagCutoffFrequency );
         
         //ds initialize indexer to pick patterns
         m_cIndexer = new CIndexer( m_iNumberOfPatterns );
@@ -307,6 +309,8 @@ public final class CLearnerBayes
     //ds reset function for the learner
     public final void reset( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException, CZEPEoIException
     {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(reset) Received reset request" );
+        
         //ds add magic number 0 to history to mark reset
         m_vecIDsHistory.add( 0 );
         
@@ -316,11 +320,11 @@ public final class CLearnerBayes
         //ds reset counters 
         m_iCounterLikes         = 0;
         m_iCounterDislikes      = 0;
-        m_iCounterLikesAnimated = 0;
-        m_iCounterLikesPhoto    = 0;
-        m_iCounterLikesText     = 0;
-        m_iCounterLikesLiked    = 0;
-        m_iCounterLikesHot      = 0;
+        m_iCounterLikesAnimated = 0; m_iCounterLikesNotAnimated = 0;
+        m_iCounterLikesPhoto    = 0; m_iCounterLikesNotPhoto    = 0;
+        m_iCounterLikesText     = 0; m_iCounterLikesNotText     = 0;
+        m_iCounterLikesLiked    = 0; m_iCounterLikesNotLiked    = 0;
+        m_iCounterLikesHot      = 0; m_iCounterLikesNotHot      = 0;
         
         //ds reset indexer
         m_cIndexer.reset( );
@@ -567,7 +571,7 @@ public final class CLearnerBayes
                 //ds tag id
                 final int iIDTag = cTag.getID( );
                 
-                dNominator       *= ( double )m_mapCounterLikesTag.get( iIDTag )/m_iCounterLikes;
+                dNominator       *= ( double )m_mapCounterLikesTag.get( iIDTag )/m_mapNumbersOfTag.get( iIDTag );
                 dProbabilityTags += m_mapAbsoluteProbabilities.get( iIDTag );
             }
             

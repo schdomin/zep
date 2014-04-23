@@ -8,6 +8,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -57,9 +58,9 @@ public final class CGUI implements ActionListener, KeyListener
     
     //ds components
     private final JButton m_cButtonReset    = new JButton( "Reset (R)" );;
-    private final JButton m_cButtonLike     = new JButton( "Like (>)" );
-    private final JButton m_cButtonDislike  = new JButton( "Dislike (v)" );
-    private final JButton m_cButtonPrevious = new JButton( "Previous (<)" );
+    private final JButton m_cButtonLike     = new JButton( "Like" );
+    private final JButton m_cButtonDislike  = new JButton( "Dislike" );
+    private final JButton m_cButtonPrevious = new JButton( "Previous" );
     
     //ds textfields
     private final JTextField m_cTextFieldTitle       = new JTextField( 60 );
@@ -462,13 +463,29 @@ public final class CGUI implements ActionListener, KeyListener
         
         //ds customize mechanical buttons
         m_cButtonReset.setPreferredSize( new Dimension( 120, 25 ) );
-        m_cButtonPrevious.setPreferredSize( new Dimension( 120, 25 ) );
+        m_cButtonPrevious.setPreferredSize( new Dimension( 110, 30 ) );
         
         //ds customize like buttons
         m_cButtonDislike.setBackground( Color.red );
         m_cButtonLike.setBackground( Color.green );
-        m_cButtonDislike.setPreferredSize( new Dimension( 105, 40 ) );
-        m_cButtonLike.setPreferredSize( new Dimension( 105, 40 ) );
+        m_cButtonDislike.setPreferredSize( new Dimension( 110, 30 ) );
+        m_cButtonLike.setPreferredSize( new Dimension( 110, 30 ) );
+        
+        //ds button icons
+        final ImageIcon cIconLike     = new ImageIcon( "icons/like_resized.png" );
+        final ImageIcon cIconDislike  = new ImageIcon( "icons/dislike_resized.png" );
+        final ImageIcon cIconPrevious = new ImageIcon( "icons/back_resized.png" );
+        
+        //ds customize
+        m_cButtonLike.setIcon( cIconLike );
+        m_cButtonDislike.setIcon( cIconDislike );
+        m_cButtonPrevious.setIcon( cIconPrevious );
+        m_cButtonLike.setMargin( new Insets( 0, 0, 0, 0 ) );
+        m_cButtonDislike.setMargin( new Insets( 0, 0, 0, 0 ) );
+        m_cButtonPrevious.setMargin( new Insets( 0, 0, 0, 0 ) );
+        m_cButtonLike.setForeground( Color.darkGray );
+        m_cButtonDislike.setForeground( Color.white );
+        m_cButtonPrevious.setForeground( Color.darkGray );
         
         //ds textfields
         m_cTextFieldTitle.setEditable( false );
@@ -603,10 +620,10 @@ public final class CGUI implements ActionListener, KeyListener
         m_cPanelEast.add( cPanelTotalLikes );
         m_cPanelEast.add( cPanelConfidence );
         
-        m_cPanelSouth.add( m_cButtonReset );
-        m_cPanelSouth.add( m_cButtonDislike );
-        m_cPanelSouth.add( m_cButtonLike );
+        //m_cPanelSouth.add( m_cButtonReset );
         m_cPanelSouth.add( m_cButtonPrevious );   
+        m_cPanelSouth.add( m_cButtonDislike );
+        m_cPanelSouth.add( m_cButtonLike ); 
     }
     
     //ds MySQL logger

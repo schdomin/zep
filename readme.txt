@@ -1,0 +1,4 @@
+- open a console
+- change to directory: zep
+- run: java -cp bin/.:thirdparty/*: main.CMain
+- press Escape key to return

@@ -24,7 +24,7 @@ public class CPair<FIRST, SECOND> implements Comparable<CPair<FIRST, SECOND>> {
     // todo move this to a helper class.
     private static int compare(Object o1, Object o2) {
         return o1 == null ? o2 == null ? 0 : -1 : o2 == null ? +1
-                : ((Comparable) o1).compareTo(o2);
+                : ((Comparable<Object>) o1).compareTo(o2);
     }
 
     public int hashCode() {
@@ -41,8 +41,8 @@ public class CPair<FIRST, SECOND> implements Comparable<CPair<FIRST, SECOND>> {
             return false;
         if (this == obj)
             return true;
-        return equal(first, ((CPair) obj).first)
-                && equal(second, ((CPair) obj).second);
+        return equal(first, ((CPair<?, ?>) obj).first)
+                && equal(second, ((CPair<?, ?>) obj).second);
     }
 
     // todo move this to a helper class.

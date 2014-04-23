@@ -165,6 +165,30 @@ public final class CMySQLManager
         return _getMaxIDFromTable( "id_pattern", strTablePatterns );
     }
     
+    //ds get tags number
+    public final Map< Integer, Integer > getNumbersOfTag( final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
+    {
+        //ds retrieve all tags fullfilling the cutoff
+        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
+        cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        
+        //ds get the result
+        final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
+        
+        //ds frequency map
+        Map< Integer, Integer > mapNumbersOfTag = new HashMap< Integer, Integer >( 0 );
+        
+        //ds evaluate all results
+        while( cResultSetTag.next( ) )
+        {
+            //ds update total number
+            mapNumbersOfTag.put( cResultSetTag.getInt( "id_tag" ), cResultSetTag.getInt( "frequency" ) );
+        }
+        
+        //ds return the map
+        return mapNumbersOfTag;
+    }
+    
     //ds insert datapoint
     public final void insertDataPoint( final CDataPoint p_cDataPoint ) throws SQLException, CZEPMySQLManagerException, MalformedURLException, IOException
     {
