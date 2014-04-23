@@ -469,7 +469,7 @@ public final class CLearnerBayes
     }
     
     //ds classifies the given patterns
-    private final Vector< CPattern > _classifyPatterns( final Vector< CPattern > p_vecPatterns )
+    private final Vector< CPattern > _classifyPatterns( final Vector< CPattern > p_vecPatterns ) throws SQLException
     {
         //ds conditional probabilities
         final double dProbabilityLike              = 0.5 + ( double )( m_iCounterLikes-m_iCounterDislikes )/( 2*m_iNumberOfPatterns );
@@ -584,6 +584,9 @@ public final class CLearnerBayes
         
         //ds we now sort the vector
         Collections.sort( vecPatternsWithProbabilities );
+        
+        //ds log maximum probability
+        m_cMySQLManager.logProbability( m_strUsername, vecPatternsWithProbabilities.firstElement( ).first );
         
         //ds sorted pattern vector to return
         Vector< CPattern > vecPatterns = new Vector< CPattern >( vecPatternsWithProbabilities.size( ) );

@@ -865,6 +865,16 @@ public final class CMySQLManager
         cStatementRemovePattern.execute( );
     }
     
+    //ds log to probability database
+    public final void logProbability( final String p_strUsername, final double p_dProbability ) throws SQLException
+    {
+        //ds simple insertion
+        final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_probability` ( `username`, `probability` ) VALUE ( ?, ? )" );
+        cStatementInsertPattern.setString( 1, p_strUsername );
+        cStatementInsertPattern.setDouble( 2, p_dProbability );
+        cStatementInsertPattern.execute( );
+    }
+    
     //ds set active user
     public final void setActiveUser( final String p_strUsername ) throws SQLException, CZEPMySQLManagerException
     {
