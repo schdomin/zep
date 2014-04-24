@@ -72,7 +72,7 @@ public class CCheezcrawler extends Thread
     public static void main( String[] args ) throws MalformedURLException
     {
         //ds default configuration parameters: mysql
-        final String strMySQLDriver    = "com.mysql.jdbc.Driver";
+        //final String strMySQLDriver    = "com.mysql.jdbc.Driver";
         final String strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
         final String strMySQLUsername  = "domis";
         final String strMySQLPassword  = "N0effort";
@@ -88,7 +88,7 @@ public class CCheezcrawler extends Thread
     	System.loadLibrary( Core.NATIVE_LIBRARY_NAME );
         
         //ds allocate the MySQL manager
-        final CMySQLManager cMySQLManager = new CMySQLManager( strMySQLDriver, strMySQLServerURL, strMySQLUsername, strMySQLPassword );
+        final CMySQLManager cMySQLManager = new CMySQLManager( strMySQLServerURL, strMySQLUsername, strMySQLPassword );
         
         try
         {

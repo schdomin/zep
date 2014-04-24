@@ -21,6 +21,9 @@ public final class CPattern
     //ds probability of like
     private double m_dLikeliness = 0.0;
     
+    //ds random field (always on if not classified)
+    private boolean m_bIsRandom = true;
+    
     //ds tags vector
     private final Vector< CTag > m_vecTags;
     
@@ -57,10 +60,12 @@ public final class CPattern
         m_bIsLiked    = p_cDataPoint.m_bIsLiked;
         m_bIsHot      = p_cDataPoint.m_bIsHot;
         m_vecTags     = p_cDataPoint.m_vecTags;
+        m_dLikeliness = p_cDataPoint.m_dLikeliness;
+        m_bIsRandom   = p_cDataPoint.m_bIsRandom;  
     }
     
     //ds comparator class
-    public static final class CComparator implements Comparator< CPattern >
+    public static final class CComparatorDecreasing implements Comparator< CPattern >
     {
         //ds comparing by probabilities
         public int compare( CPattern p_cPattern1, CPattern p_cPattern2 )
@@ -69,10 +74,10 @@ public final class CPattern
             if( p_cPattern1.m_dLikeliness == p_cPattern2.m_dLikeliness ){ return 0; }
             
             //ds check if bigger
-            if( p_cPattern1.m_dLikeliness > p_cPattern2.m_dLikeliness ){ return 1; }
+            if( p_cPattern1.m_dLikeliness > p_cPattern2.m_dLikeliness ){ return -1; }
             
             //ds only smaller left
-            return -1;
+            return 1;
         }
     }
     
@@ -89,4 +94,8 @@ public final class CPattern
     //ds probability
     public final double getLikeliness( ){ return m_dLikeliness; }
     public final void setLikeliness( final double p_dLikeliness ){ m_dLikeliness = p_dLikeliness; }
+    
+    //ds randomness
+    public final boolean isRandom( ){ return m_bIsRandom; }
+    public final void setRandom( final boolean p_bIsRandom ){ m_bIsRandom = p_bIsRandom; }
 }

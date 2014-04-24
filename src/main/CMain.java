@@ -50,7 +50,7 @@ public final class CMain
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         
         //ds allocate the MySQL manager
-        final CMySQLManager cMySQLManager = new CMySQLManager( m_strMySQLDriver, m_strMySQLServerURL, m_strMySQLUsername, m_strMySQLPassword );
+        final CMySQLManager cMySQLManager = new CMySQLManager( m_strMySQLServerURL, m_strMySQLUsername, m_strMySQLPassword );
         
         try
         {
@@ -116,6 +116,7 @@ public final class CMain
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPGUIException: " + e.getMessage( ) + " - could not initialize GUI" );
             cGUI.close( );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            System.exit( 0 );
             return;                  
         }
         catch( SQLException e )
@@ -123,6 +124,7 @@ public final class CMain
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) SQLException: " + e.getMessage( ) + " - could not initialize GUI" );
             cGUI.close( );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            System.exit( 0 );
             return;                  
         }
         catch( CZEPMySQLManagerException e )
@@ -130,6 +132,7 @@ public final class CMain
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " - could not connect to MySQL" );
             cGUI.close( );
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            System.exit( 0 );
             return;                  
         }
              
@@ -167,6 +170,7 @@ public final class CMain
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) MalformedURLException: " + e.getMessage( ) + " could not classify" );
                 cGUI.close( );
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+                System.exit( 0 );
                 return; 
             }
             catch( SQLException e )
@@ -177,6 +181,7 @@ public final class CMain
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) SQLException: " + e.getMessage( ) + " could not classify" );
                 cGUI.close( );
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+                System.exit( 0 );
                 return; 
             }
             catch( CZEPMySQLManagerException e )
@@ -187,6 +192,7 @@ public final class CMain
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " could not classify" );
                 cGUI.close( );
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+                System.exit( 0 );
                 return; 
             }
             catch( CZEPEoIException e )
@@ -197,12 +203,14 @@ public final class CMain
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPEoIException: " + e.getMessage( ) + " could not classify" );
                 cGUI.close( );
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+                System.exit( 0 );
                 return; 
             }
         }
         
         cGUI.close( );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) ZEP terminated" );
+        System.exit( 0 );
         return;
     }
     

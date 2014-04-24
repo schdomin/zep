@@ -27,7 +27,7 @@ import exceptions.CZEPMySQLManagerException;
 public final class CMySQLManager
 {
     //ds soft attributes
-    private final String m_strMySQLDriver;
+    //private final String m_strMySQLDriver;
     private final String m_strMySQLServerURL;
     private final String m_strMySQLUsername;
     private final String m_strMySQLPassword;
@@ -47,7 +47,7 @@ public final class CMySQLManager
     private final double m_dMaximumVotesCommentsRatio = 10;
     
     //ds constructor
-    public CMySQLManager( final String p_strMySQLDriver, final String p_strMySQLServerURL, final String p_strMySQLUsername, final String p_strMySQLPassword )
+    public CMySQLManager( final String p_strMySQLServerURL, final String p_strMySQLUsername, final String p_strMySQLPassword )
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(CMySQLManager) Instance allocated" );
         
@@ -55,7 +55,7 @@ public final class CMySQLManager
         m_strLogFileTagGrowth += CLogger.getFileStamp( ) + ".csv";
         
         //ds set values
-        m_strMySQLDriver    = p_strMySQLDriver;
+        //m_strMySQLDriver    = p_strMySQLDriver;
         m_strMySQLServerURL = p_strMySQLServerURL;
         m_strMySQLUsername  = p_strMySQLUsername;
         m_strMySQLPassword  = p_strMySQLPassword;
@@ -65,14 +65,14 @@ public final class CMySQLManager
     public static void main( String[] args )
     {
         //ds default configuration parameters: mysql
-        final String strMySQLDriver    = "com.mysql.jdbc.Driver";
+        //final String strMySQLDriver    = "com.mysql.jdbc.Driver";
         final String strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
         final String strMySQLUsername  = "domis";
         final String strMySQLPassword  = "N0effort";
         final int iTagCutoffFrequency  = 10;
         
         //ds allocate the MySQL manager
-        final CMySQLManager cMySQLManager = new CMySQLManager( strMySQLDriver, strMySQLServerURL, strMySQLUsername, strMySQLPassword );
+        final CMySQLManager cMySQLManager = new CMySQLManager( strMySQLServerURL, strMySQLUsername, strMySQLPassword );
         
         try
         {
@@ -110,15 +110,6 @@ public final class CMySQLManager
         try
         {
             //ds compute probabilities
-            cMySQLManager.createTagsTable( iTagCutoffFrequency );
-        }
-        catch( Exception e )
-        {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) Exception: " + e.getMessage( ) + " - failed" );
-        }
-        try
-        {
-            //ds compute probabilities
             cMySQLManager.computeProbabilities( iTagCutoffFrequency );
         }
         catch( Exception e )
@@ -126,16 +117,15 @@ public final class CMySQLManager
             System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) Exception: " + e.getMessage( ) + " - failed" ); 
         }
         
+        //ds exit and close jvm
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) terminated" ); 
+        System.exit( 0 );
         return;
     }
     
     //ds launch - establishes connection
     public final void launch( ) throws ClassNotFoundException, SQLException, CZEPMySQLManagerException
     {
-        //ds setup driver
-        Class.forName( m_strMySQLDriver );
-        
         //ds set login timeout (seconds)
         DriverManager.setLoginTimeout( m_iMySQLTimeoutMS/1000 );
         
@@ -164,7 +154,7 @@ public final class CMySQLManager
     public final int getNumberOfPatterns( final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
     {
         //ds table
-        final String strTablePatterns = "patterns_" + Integer.toString( p_iTagCutoffFrequency );
+        final String strTablePatterns = "cutoff_" + Integer.toString( p_iTagCutoffFrequency ) + "_patterns";
         
         //ds max id is zero for empty table
         return _getMaxIDFromTable( "id_pattern", strTablePatterns );
@@ -173,9 +163,11 @@ public final class CMySQLManager
     //ds get tags number
     public final Map< Integer, Integer > getNumbersOfTag( final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
     {
-        //ds retrieve all tags fullfilling the cutoff
-        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
-        cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        //ds table
+        final String strTableTags = "cutoff_" + Integer.toString( p_iTagCutoffFrequency ) + "_tags";
+        
+        //ds retrieve all tags fulfilling the cutoff
+        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTableTags + "`" );
         cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
@@ -432,7 +424,7 @@ public final class CMySQLManager
     public final CPattern getPatternByID( final int p_iID, final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
     {
         //ds table
-        final String strTablePatterns = "patterns_" + Integer.toString( p_iTagCutoffFrequency );
+        final String strTablePatterns = "cutoff_" + Integer.toString( p_iTagCutoffFrequency ) + "_patterns";
         
         //ds query for the id
         final PreparedStatement cRetrievePattern = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTablePatterns + "` WHERE `id_pattern` = ( ? ) LIMIT 1" );
@@ -606,7 +598,7 @@ public final class CMySQLManager
     public final Map< Integer, Double > getProbabilityMap( final int p_iTagCutoffFrequency ) throws CZEPMySQLManagerException, SQLException
     {
         //ds table
-        final String strTableProbabilities = "probabilities_" + Integer.toString( p_iTagCutoffFrequency );
+        final String strTableProbabilities = "cutoff_" + Integer.toString( p_iTagCutoffFrequency ) + "_probabilities";
         
         //ds get number of entries
         final int iMapSize = _getMaxIDFromTable( "id_probability", strTableProbabilities );
@@ -639,9 +631,11 @@ public final class CMySQLManager
     //ds get all tag incidies
     public final Vector< Integer > getTagIDs( final int p_iTagCutoffFrequency ) throws SQLException
     {
-        //ds retrieve all tags fullfilling the cutoff
-        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
-        cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        //ds table
+        final String strTableTags = "cutoff_" + Integer.toString( p_iTagCutoffFrequency ) + "_tags";
+        
+        //ds retrieve all tags fulfilling the cutoff
+        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTableTags + "`" );
         cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
@@ -668,8 +662,8 @@ public final class CMySQLManager
         
         //ds table names
         final String strTagCutoff     = Integer.toString( p_iTagCutoffFrequency );
-        final String strTablePatterns = "patterns_" + strTagCutoff;
-        final String strTableTags     = "tags_" + strTagCutoff;
+        final String strTablePatterns = "cutoff_" + strTagCutoff + "_patterns";
+        final String strTableTags     = "cutoff_" + Integer.toString( p_iTagCutoffFrequency ) + "_tags";
         
         //ds query for the first id - select all datapoints
         final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= ( ? )" );
@@ -759,7 +753,7 @@ public final class CMySQLManager
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(computeProbabilities) creating tags table for cutoff frequency: " +  p_iTagCutoffFrequency );
         
         //ds table names
-        final String strTableTags = "tags_" + Integer.toString( p_iTagCutoffFrequency );
+        final String strTableTags = "cutoff_" + Integer.toString( p_iTagCutoffFrequency ) + "_tags" ;
         
         //ds retrieve all tags fullfilling the cutoff
         final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
@@ -789,12 +783,11 @@ public final class CMySQLManager
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(computeProbabilities) computing probabilities for cutoff frequency: " +  p_iTagCutoffFrequency );
         
-        //ds get input as string
-        final String strMinimumTagFrequency = Integer.toString( p_iTagCutoffFrequency );
-        
         //ds table names
-        final String strTableProbabilities = "probabilities_" + strMinimumTagFrequency;
-        final String strTablePatterns      = "patterns_" + strMinimumTagFrequency;
+        final String strTagCutoff     = Integer.toString( p_iTagCutoffFrequency );
+        final String strTableProbabilities = "cutoff_" + strTagCutoff + "_probabilities";
+        final String strTablePatterns      = "cutoff_" + strTagCutoff + "_patterns";
+        final String strTableTags          = "cutoff_" + strTagCutoff + "_tags";
         
         //ds get total values
         final int iTotalNumberOfPatterns = _getMaxIDFromTable( "id_datapoint", strTablePatterns );
@@ -868,8 +861,7 @@ public final class CMySQLManager
         int iTotalNumberOfTags = 0;
         
         //ds retrieve all tags fullfilling the cutoff
-        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
-        cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTableTags + "`" );
         cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
@@ -920,14 +912,15 @@ public final class CMySQLManager
     }
     
     //ds log to learner database
-    public final void logPattern( final String p_strUsername, final CPattern p_cPattern, final boolean p_bIsRandom, final boolean p_bIsLiked ) throws SQLException
+    public final void logPattern( final String p_strUsername, final CPattern p_cPattern, final boolean p_bIsLiked ) throws SQLException
     {
         //ds simple insertion
-        final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_learner` ( `username`, `id_datapoint`, `random`, `liked` ) VALUE ( ?, ?, ?, ? )" );
+        final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_learner` ( `username`, `id_datapoint`, `random`, `liked`, `probability` ) VALUE ( ?, ?, ?, ?, ? )" );
         cStatementInsertPattern.setString( 1, p_strUsername );
         cStatementInsertPattern.setInt( 2, p_cPattern.getID( ) );
-        cStatementInsertPattern.setBoolean( 3, p_bIsRandom );
+        cStatementInsertPattern.setBoolean( 3, p_cPattern.isRandom( ) );
         cStatementInsertPattern.setBoolean( 4, p_bIsLiked );
+        cStatementInsertPattern.setDouble( 5, p_cPattern.getLikeliness( ) );
         cStatementInsertPattern.setQueryTimeout( m_iMySQLTimeoutMS );
         cStatementInsertPattern.execute( );
     }
@@ -941,17 +934,6 @@ public final class CMySQLManager
         cStatementRemovePattern.setInt( 2, p_cPattern.getID( ) );
         cStatementRemovePattern.setQueryTimeout( m_iMySQLTimeoutMS );
         cStatementRemovePattern.execute( );
-    }
-    
-    //ds log to probability database
-    public final void logProbability( final String p_strUsername, final double p_dProbability ) throws SQLException
-    {
-        //ds simple insertion
-        final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_probability` ( `username`, `probability` ) VALUE ( ?, ? )" );
-        cStatementInsertPattern.setString( 1, p_strUsername );
-        cStatementInsertPattern.setDouble( 2, p_dProbability );
-        cStatementInsertPattern.setQueryTimeout( m_iMySQLTimeoutMS );
-        cStatementInsertPattern.execute( );
     }
     
     //ds set active user
@@ -1142,9 +1124,10 @@ public final class CMySQLManager
         if( !cResultTag.next( ) )
         {
             //ds add the tag to the tags table
-            final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + p_strTableTags + "` ( `value`, `frequency` ) VALUE ( ?, ? )" );
-            cStatementInsertTag.setString( 1, p_cTag.getValue( ) );
-            cStatementInsertTag.setInt( 2, 1 );
+            final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + p_strTableTags + "` ( `id_tag`, `value`, `frequency` ) VALUE ( ?, ?, ? )" );
+            cStatementInsertTag.setInt( 1, p_cTag.getID( ) );
+            cStatementInsertTag.setString( 2, p_cTag.getValue( ) );
+            cStatementInsertTag.setInt( 3, 1 );
             cStatementInsertTag.setQueryTimeout( m_iMySQLTimeoutMS );
             cStatementInsertTag.execute( );
         }

@@ -63,7 +63,7 @@ public final class CGUI implements ActionListener, KeyListener
     private final JButton m_cButtonPrevious = new JButton( "Previous" );
     
     //ds textfields
-    private final JTextField m_cTextFieldTitle       = new JTextField( 60 );
+    private final JTextField m_cTextFieldTitle       = new JTextField( 100 );
     private final JTextField m_cTextFieldURL         = new JTextField( 60 );
     private final JTextField m_cTextFieldTags        = new JTextField( 60 );
     private final JTextField m_cTextFieldImageID     = new JTextField( 3 );
@@ -358,7 +358,7 @@ public final class CGUI implements ActionListener, KeyListener
         if(      iKeyCode == KeyEvent.VK_RIGHT ){ m_cButtonLike.doClick( ); }
         else if( iKeyCode == KeyEvent.VK_DOWN ){ m_cButtonDislike.doClick( ); }
         else if( iKeyCode == KeyEvent.VK_LEFT ){ m_cButtonPrevious.doClick( ); }
-        else if( iKeyCode == KeyEvent.VK_R ){ m_cButtonReset.doClick( ); }
+        else if( iKeyCode == KeyEvent.VK_R ){ /*m_cButtonReset.doClick( );*/ }
         else if( iKeyCode == KeyEvent.VK_ESCAPE )
         {
             //ds notify
