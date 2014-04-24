@@ -3,6 +3,7 @@ package utility;
 import java.awt.image.BufferedImage;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.Blob;
@@ -14,13 +15,13 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
+import java.util.concurrent.Executors;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
-import utility.CTag;
-
 //ds custom imports
+import utility.CTag;
 import exceptions.CZEPMySQLManagerException;
 
 public final class CMySQLManager
@@ -68,6 +69,7 @@ public final class CMySQLManager
         final String strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
         final String strMySQLUsername  = "domis";
         final String strMySQLPassword  = "N0effort";
+        final int iTagCutoffFrequency  = 10;
         
         //ds allocate the MySQL manager
         final CMySQLManager cMySQLManager = new CMySQLManager( strMySQLDriver, strMySQLServerURL, strMySQLUsername, strMySQLPassword );
@@ -99,7 +101,7 @@ public final class CMySQLManager
         try
         {
             //ds create feature table
-            cMySQLManager.createPatternsTable( 10, 1 );
+            cMySQLManager.createPatternsAndTagsTable( iTagCutoffFrequency, 1 );
         }
         catch( Exception e )
         {
@@ -108,7 +110,7 @@ public final class CMySQLManager
         try
         {
             //ds compute probabilities
-            cMySQLManager.createTagsTable( 10 );
+            cMySQLManager.createTagsTable( iTagCutoffFrequency );
         }
         catch( Exception e )
         {
@@ -117,7 +119,7 @@ public final class CMySQLManager
         try
         {
             //ds compute probabilities
-            cMySQLManager.computeProbabilities( 10 );
+            cMySQLManager.computeProbabilities( iTagCutoffFrequency );
         }
         catch( Exception e )
         {
@@ -138,7 +140,10 @@ public final class CMySQLManager
         DriverManager.setLoginTimeout( m_iMySQLTimeoutMS/1000 );
         
         //ds establish connection
-        m_cMySQLConnection = DriverManager.getConnection( m_strMySQLServerURL, m_strMySQLUsername, m_strMySQLPassword );      
+        m_cMySQLConnection = DriverManager.getConnection( m_strMySQLServerURL, m_strMySQLUsername, m_strMySQLPassword );
+        
+        //ds set networking timeout
+        m_cMySQLConnection.setNetworkTimeout( Executors.newFixedThreadPool( 1 ), m_iMySQLTimeoutMS );
         
         //ds check connection
         if( !m_cMySQLConnection.isValid( m_iMySQLTimeoutMS ) )
@@ -171,6 +176,7 @@ public final class CMySQLManager
         //ds retrieve all tags fullfilling the cutoff
         final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
         cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
@@ -195,6 +201,7 @@ public final class CMySQLManager
         //ds first check if we already have an entry for this image (no double URLs allowed)
         final PreparedStatement cStatementCheckDataPoint = m_cMySQLConnection.prepareStatement( "SELECT `id_datapoint` from `datapoints` WHERE `url` = ( ? ) LIMIT 1" );
         cStatementCheckDataPoint.setString( 1, p_cDataPoint.getURL( ).toString( ) );
+        cStatementCheckDataPoint.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds if there is no entry yet
         if( !cStatementCheckDataPoint.executeQuery( ).next( ) )
@@ -212,6 +219,7 @@ public final class CMySQLManager
             cStatementInsertDataPoint.setInt( 7, p_cDataPoint.getCountTags( ) );
             cStatementInsertDataPoint.setBoolean( 8, p_cDataPoint.isPhoto( ) );
             cStatementInsertDataPoint.setDouble( 9, p_cDataPoint.getTextAmount( ) );
+            cStatementInsertDataPoint.setQueryTimeout( m_iMySQLTimeoutMS );
             cStatementInsertDataPoint.execute( );          
             
             //ds obtain the datapoint id
@@ -227,6 +235,7 @@ public final class CMySQLManager
             final PreparedStatement cStatementInsertImage = m_cMySQLConnection.prepareStatement( "INSERT INTO `images` ( `id_datapoint`, `data_binary` ) VALUE ( ?, ? )" );
             cStatementInsertImage.setInt( 1, iID_DataPoint );
             cStatementInsertImage.setBlob( 2, new URL( p_cDataPoint.getURL( ).toString( ) ).openStream( ) );
+            cStatementInsertImage.setQueryTimeout( m_iMySQLTimeoutMS );
             cStatementInsertImage.executeQuery( );
             
             //ds logging last tag id
@@ -238,6 +247,7 @@ public final class CMySQLManager
             	//ds for each tag check if we already have an entry in the tags map
                 final PreparedStatement cStatementCheckTags = m_cMySQLConnection.prepareStatement( "SELECT * from `tags` WHERE `value` = ( ? ) LIMIT 1" );
                 cStatementCheckTags.setString( 1, cTag.getValue( ) );
+                cStatementCheckTags.setQueryTimeout( m_iMySQLTimeoutMS );
                 
                 //ds get the result
                 final ResultSet cResultTag = cStatementCheckTags.executeQuery( );
@@ -249,6 +259,7 @@ public final class CMySQLManager
                     final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "INSERT INTO `tags` ( `value`, `frequency` ) VALUE ( ?, ? )" );
                     cStatementInsertTag.setString( 1, cTag.getValue( ) );
                     cStatementInsertTag.setInt( 2, 1 );
+                    cStatementInsertTag.setQueryTimeout( m_iMySQLTimeoutMS );
                     cStatementInsertTag.execute( );
                     
                     //ds increment tag counter
@@ -263,6 +274,7 @@ public final class CMySQLManager
                     final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "UPDATE `tags` SET `frequency` = ( ? ) WHERE `value` = ( ? )" );
                     cStatementInsertTag.setInt( 1, iCounter+1 );
                     cStatementInsertTag.setString( 2, cTag.getValue( ) );
+                    cStatementInsertTag.setQueryTimeout( m_iMySQLTimeoutMS );
                     cStatementInsertTag.execute( );                    
                 }
                 
@@ -279,6 +291,7 @@ public final class CMySQLManager
                 final PreparedStatement cStatementInsertLinkage = m_cMySQLConnection.prepareStatement( "INSERT INTO `mappings` ( `id_datapoint`, `id_tag` ) VALUE ( ?, ? )" );
                 cStatementInsertLinkage.setInt( 1, iID_DataPoint );
                 cStatementInsertLinkage.setInt( 2, iID_Tag );
+                cStatementInsertLinkage.setQueryTimeout( m_iMySQLTimeoutMS );
                 cStatementInsertLinkage.execute( );
             }
             
@@ -306,6 +319,7 @@ public final class CMySQLManager
         //ds query for the id
         final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
         cRetrieveDataPoint.setInt( 1, p_iID_DataPoint );
+        cRetrieveDataPoint.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
@@ -423,6 +437,7 @@ public final class CMySQLManager
         //ds query for the id
         final PreparedStatement cRetrievePattern = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTablePatterns + "` WHERE `id_pattern` = ( ? ) LIMIT 1" );
         cRetrievePattern.setInt( 1, p_iID );
+        cRetrievePattern.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetPattern = cRetrievePattern.executeQuery( );
@@ -447,6 +462,7 @@ public final class CMySQLManager
             //ds grab the image row
             final PreparedStatement cRetrieveImage = m_cMySQLConnection.prepareStatement( "SELECT * FROM `images` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
             cRetrieveImage.setInt( 1, p_cPattern.getID( ) );
+            cRetrieveImage.setQueryTimeout( m_iMySQLTimeoutMS );
 
             //ds execute the statement
             final ResultSet cResultSetImage = cRetrieveImage.executeQuery( );
@@ -483,6 +499,7 @@ public final class CMySQLManager
             //ds grab the image row
             final PreparedStatement cRetrieveImage = m_cMySQLConnection.prepareStatement( "SELECT * FROM `images` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
             cRetrieveImage.setInt( 1, p_cPattern.getID( ) );
+            cRetrieveImage.setQueryTimeout( m_iMySQLTimeoutMS );
         
             //ds execute the statement
             final ResultSet cResultSetImage = cRetrieveImage.executeQuery( );
@@ -508,6 +525,39 @@ public final class CMySQLManager
         {
             throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cPattern.getID( ) );    		
         }
+    }
+    
+    //ds binary stream
+    public final InputStream getImageStream( final CPattern p_cPattern ) throws CZEPMySQLManagerException
+    {
+        try
+        {
+            //ds grab the image row
+            final PreparedStatement cRetrieveImage = m_cMySQLConnection.prepareStatement( "SELECT * FROM `images` WHERE `id_datapoint` = ( ? ) LIMIT 1" );
+            cRetrieveImage.setInt( 1, p_cPattern.getID( ) );
+            cRetrieveImage.setQueryTimeout( m_iMySQLTimeoutMS );
+        
+            //ds execute the statement
+            final ResultSet cResultSetImage = cRetrieveImage.executeQuery( );
+        
+            //ds if we got something
+            if( cResultSetImage.next( ) )
+            {
+                //ds get the blob from mysql
+                final Blob cBlob =  cResultSetImage.getBlob( "data_binary" );
+        
+                //ds return it
+                return cBlob.getBinaryStream( );
+            }
+            else
+            {
+                throw new CZEPMySQLManagerException( "could not load image from MySQL database - ID: " + p_cPattern.getID( ) );
+            }
+        }
+        catch( SQLException e )
+        {
+            throw new CZEPMySQLManagerException( "SQLException: " + e.getMessage( ) + " could not load image from MySQL database - ID: " + p_cPattern.getID( ) );           
+        }        
     }
     
     /*ds access function: multiple datapoints
@@ -568,6 +618,7 @@ public final class CMySQLManager
         
         //ds import the information from the db
         final PreparedStatement cRetrieveProbability = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTableProbabilities + "` WHERE `id_probability` >= 1" );
+        cRetrieveProbability.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetProbability = cRetrieveProbability.executeQuery( );
@@ -591,6 +642,7 @@ public final class CMySQLManager
         //ds retrieve all tags fullfilling the cutoff
         final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
         cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
@@ -610,16 +662,19 @@ public final class CMySQLManager
     }
     
     //ds create feature table
-    public final void createPatternsTable( final int p_iTagCutoffFrequency, final int p_iID_DataPointStart ) throws SQLException, IOException
+    public final void createPatternsAndTagsTable( final int p_iTagCutoffFrequency, final int p_iID_DataPointStart ) throws SQLException, IOException
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) creating the final feature table starting at ID: " + p_iID_DataPointStart );
         
         //ds table names
-        final String strTablePatterns = "patterns_" + Integer.toString( p_iTagCutoffFrequency );
+        final String strTagCutoff     = Integer.toString( p_iTagCutoffFrequency );
+        final String strTablePatterns = "patterns_" + strTagCutoff;
+        final String strTableTags     = "tags_" + strTagCutoff;
         
         //ds query for the first id - select all datapoints
         final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= ( ? )" );
         cRetrieveDataPoint.setInt( 1, p_iID_DataPointStart );
+        cRetrieveDataPoint.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
@@ -633,8 +688,18 @@ public final class CMySQLManager
             //ds get the datapoint
             final CDataPoint cDataPoint = _getDataPointFromResultSet( cResultSetDataPoint );
             
-            //ds tag ids to use
-            final Vector< Integer > vecTagIDs = new Vector< Integer >( 0 );
+            //ds escape for gifs TODO GIFS
+            if( cDataPoint.getType( ).equals( "gif" ) )
+            {
+                //ds count
+                ++iNumberOfDiscardedPoints;
+                
+                //ds check next datapoint
+                continue;                
+            }
+            
+            //ds minimum 1 tag has to reach cutoff frequency
+            boolean bIsFrequencyAboveCutoff = false;
             
             //ds we now have to check the tag frequencies
             for( CTag cTag: cDataPoint.getTags( ) )
@@ -642,13 +707,16 @@ public final class CMySQLManager
                 //ds if the frequency is above the threshold
                 if( p_iTagCutoffFrequency < cTag.getFrequency( ) )
                 {
-                    //ds add the id
-                    vecTagIDs.add( cTag.getID( ) );
+                    //ds done we can use this datapoint
+                    bIsFrequencyAboveCutoff = true;
+                    
+                    //ds insert tag in tags table for the current cutoff
+                    _insertTag( cTag, strTableTags );
                 }
             }
             
             //ds check if there was no tag with minimum frequency fullfiled
-            if( vecTagIDs.isEmpty( ) )
+            if( !bIsFrequencyAboveCutoff )
             {
                 //ds count
                 ++iNumberOfDiscardedPoints;
@@ -662,7 +730,7 @@ public final class CMySQLManager
             
             //ds determine values
             final int iID_DataPoint   = cDataPoint.getID( );
-            final boolean bIsAnimated = cDataPoint.getType( ).matches( "gif" );
+            final boolean bIsAnimated = cDataPoint.getType( ).equals( "gif" );
             final boolean bIsPhoto    = cDataPoint.isPhoto( );
             final boolean isText      = cDataPoint.getTextAmount( ) > m_dMinimumText;
             final boolean isLiked     = ( double )( cDataPoint.getLikes( ) )/( cDataPoint.getDislikes( )+1  ) > m_dMinimumLikeDislikeRatio;
@@ -676,6 +744,7 @@ public final class CMySQLManager
             cStatementInsertFeaturePoint.setBoolean( 5, isText );
             cStatementInsertFeaturePoint.setBoolean( 6, isLiked );
             cStatementInsertFeaturePoint.setBoolean( 7, isHot );
+            cStatementInsertFeaturePoint.setQueryTimeout( m_iMySQLTimeoutMS );
 
             //ds execute
             cStatementInsertFeaturePoint.execute( );
@@ -695,6 +764,7 @@ public final class CMySQLManager
         //ds retrieve all tags fullfilling the cutoff
         final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
         cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
@@ -707,6 +777,7 @@ public final class CMySQLManager
             cStatementInsertTag.setInt( 1, cResultSetTag.getInt( "id_tag" ) );
             cStatementInsertTag.setString( 2, cResultSetTag.getString( "value" ) );
             cStatementInsertTag.setInt( 3, cResultSetTag.getInt( "frequency" ) );
+            cStatementInsertTag.setQueryTimeout( m_iMySQLTimeoutMS );
             
             //ds commit
             cStatementInsertTag.execute( );
@@ -737,6 +808,7 @@ public final class CMySQLManager
         
         //ds we have to loop through the whole datapoint table
         final PreparedStatement cRetrievePattern = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTablePatterns + "` WHERE `id_datapoint` >= 1" );     
+        cRetrievePattern.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetDataPoint = cRetrievePattern.executeQuery( );
@@ -784,6 +856,7 @@ public final class CMySQLManager
         cStatementInsertValues.setInt( 13, -5 );
         cStatementInsertValues.setDouble( 14, dProbabilityHot );
         cStatementInsertValues.setString( 15, "hot" );
+        cStatementInsertValues.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds commit
         cStatementInsertValues.execute( );
@@ -797,6 +870,7 @@ public final class CMySQLManager
         //ds retrieve all tags fullfilling the cutoff
         final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` > ( ? )" );
         cRetrieveTag.setInt( 1, p_iTagCutoffFrequency );
+        cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
@@ -825,6 +899,7 @@ public final class CMySQLManager
             cStatementInsertTag.setInt( 1, cTag.getID( ) );
             cStatementInsertTag.setDouble( 2, dProbabilityTag );
             cStatementInsertTag.setString( 3, cTag.getValue( ) );
+            cStatementInsertTag.setQueryTimeout( m_iMySQLTimeoutMS );
             
             //ds commit
             cStatementInsertTag.execute( );
@@ -840,6 +915,7 @@ public final class CMySQLManager
         final PreparedStatement cStatementInsertText = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_master` ( `username`, `text` ) VALUE ( ?, ? )" );
         cStatementInsertText.setString( 1, p_strUsername );
         cStatementInsertText.setString( 2, p_strText );
+        cStatementInsertText.setQueryTimeout( m_iMySQLTimeoutMS );
         cStatementInsertText.execute( );
     }
     
@@ -852,6 +928,7 @@ public final class CMySQLManager
         cStatementInsertPattern.setInt( 2, p_cPattern.getID( ) );
         cStatementInsertPattern.setBoolean( 3, p_bIsRandom );
         cStatementInsertPattern.setBoolean( 4, p_bIsLiked );
+        cStatementInsertPattern.setQueryTimeout( m_iMySQLTimeoutMS );
         cStatementInsertPattern.execute( );
     }
     
@@ -862,6 +939,7 @@ public final class CMySQLManager
         final PreparedStatement cStatementRemovePattern = m_cMySQLConnection.prepareStatement( "DELETE FROM `log_learner` WHERE ( `username` ) = ( ? ) AND ( `id_datapoint` ) = ( ? )" );
         cStatementRemovePattern.setString( 1, p_strUsername );
         cStatementRemovePattern.setInt( 2, p_cPattern.getID( ) );
+        cStatementRemovePattern.setQueryTimeout( m_iMySQLTimeoutMS );
         cStatementRemovePattern.execute( );
     }
     
@@ -872,6 +950,7 @@ public final class CMySQLManager
         final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_probability` ( `username`, `probability` ) VALUE ( ?, ? )" );
         cStatementInsertPattern.setString( 1, p_strUsername );
         cStatementInsertPattern.setDouble( 2, p_dProbability );
+        cStatementInsertPattern.setQueryTimeout( m_iMySQLTimeoutMS );
         cStatementInsertPattern.execute( );
     }
     
@@ -884,6 +963,7 @@ public final class CMySQLManager
             //ds simple deletion
             final PreparedStatement cStatementAddUser = m_cMySQLConnection.prepareStatement( "INSERT INTO `active_users` ( `username` ) VALUE ( ? )" );
             cStatementAddUser.setString( 1, p_strUsername );
+            cStatementAddUser.setQueryTimeout( m_iMySQLTimeoutMS );
             cStatementAddUser.execute( );
         }
         else
@@ -902,6 +982,7 @@ public final class CMySQLManager
             //ds simple insertion
             final PreparedStatement cStatementRemoveUser = m_cMySQLConnection.prepareStatement( "DELETE FROM `active_users` WHERE ( `username` ) = ( ? )" );
             cStatementRemoveUser.setString( 1, p_strUsername );
+            cStatementRemoveUser.setQueryTimeout( m_iMySQLTimeoutMS );
             cStatementRemoveUser.execute( );
         }
         else
@@ -917,6 +998,7 @@ public final class CMySQLManager
         //ds query for the username
         final PreparedStatement cRetrieveUser = m_cMySQLConnection.prepareStatement( "SELECT * FROM `active_users` WHERE `username` = ( ? ) LIMIT 1" );
         cRetrieveUser.setString( 1, p_strUsername );
+        cRetrieveUser.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
         final ResultSet cResultSetUser = cRetrieveUser.executeQuery( );
@@ -1019,7 +1101,12 @@ public final class CMySQLManager
     {
         //ds determine the current max id in the database
         final PreparedStatement cStatementCheck = m_cMySQLConnection.prepareStatement( "SELECT MAX(`"+p_strKeyID+"`) FROM `"+p_strTable+"`" );
-        final ResultSet cResultSetCheck         = cStatementCheck.executeQuery( );
+        
+        //ds set timeout
+        cStatementCheck.setQueryTimeout( m_iMySQLTimeoutMS );
+        
+        //ds retrieve result
+        final ResultSet cResultSetCheck = cStatementCheck.executeQuery( );
         
         //ds default
         int iMaxID = -1;
@@ -1038,6 +1125,41 @@ public final class CMySQLManager
         }
         
         return iMaxID;
+    }
+    
+    //ds inserts tag into table
+    private final void _insertTag( final CTag p_cTag, final String p_strTableTags ) throws SQLException
+    {
+      //ds create an entry in the tags table - check if we already have an entry
+        final PreparedStatement cStatementCheckTags = m_cMySQLConnection.prepareStatement( "SELECT * from `" + p_strTableTags + "` WHERE `value` = ( ? ) LIMIT 1" );
+        cStatementCheckTags.setString( 1, p_cTag.getValue( ) );
+        cStatementCheckTags.setQueryTimeout( m_iMySQLTimeoutMS );
+        
+        //ds get the result
+        final ResultSet cResultTag = cStatementCheckTags.executeQuery( ); 
+        
+        //ds if there is no entry yet
+        if( !cResultTag.next( ) )
+        {
+            //ds add the tag to the tags table
+            final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + p_strTableTags + "` ( `value`, `frequency` ) VALUE ( ?, ? )" );
+            cStatementInsertTag.setString( 1, p_cTag.getValue( ) );
+            cStatementInsertTag.setInt( 2, 1 );
+            cStatementInsertTag.setQueryTimeout( m_iMySQLTimeoutMS );
+            cStatementInsertTag.execute( );
+        }
+        else
+        {
+            //ds increment the frequency counter - first obtain it
+            final int iCounter = cResultTag.getInt( "frequency" );
+            
+            //ds insert the incremented counter
+            final PreparedStatement cStatementInsertTag = m_cMySQLConnection.prepareStatement( "UPDATE `" + p_strTableTags + "` SET `frequency` = ( ? ) WHERE `value` = ( ? )" );
+            cStatementInsertTag.setInt( 1, iCounter+1 );
+            cStatementInsertTag.setString( 2, p_cTag.getValue( ) );
+            cStatementInsertTag.setQueryTimeout( m_iMySQLTimeoutMS );
+            cStatementInsertTag.execute( );                    
+        }        
     }
     
     //ds helper for data element retrieval
@@ -1063,6 +1185,7 @@ public final class CMySQLManager
         //ds now retrieve the tag information
         final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE `id_datapoint` = ( ? )" );
         cRetrieveMapping.setInt( 1, iID_DataPoint );
+        cRetrieveMapping.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the mapping
         final ResultSet cResultSetMapping = cRetrieveMapping.executeQuery( );
@@ -1076,6 +1199,7 @@ public final class CMySQLManager
             //ds get actual tag text
             final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `id_tag` = ( ? ) LIMIT 1" );
             cRetrieveTag.setInt( 1, iID_Tag );
+            cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
             
             //ds get the tag
             final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
@@ -1112,6 +1236,7 @@ public final class CMySQLManager
         //ds now retrieve the tag information
         final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE `id_datapoint` = ( ? )" );
         cRetrieveMapping.setInt( 1, iID_DataPoint );
+        cRetrieveMapping.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the mapping
         final ResultSet cResultSetMapping = cRetrieveMapping.executeQuery( );
@@ -1126,6 +1251,7 @@ public final class CMySQLManager
             final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `id_tag` = ( ? ) AND `frequency` > ( ? ) LIMIT 1" );
             cRetrieveTag.setInt( 1, iID_Tag );
             cRetrieveTag.setInt( 2, p_iTagCutoffFrequency );
+            cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
             
             //ds get the tag
             final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );

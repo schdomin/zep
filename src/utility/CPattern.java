@@ -1,5 +1,6 @@
 package utility;
 
+import java.util.Comparator;
 import java.util.Vector;
 
 public final class CPattern
@@ -17,12 +18,15 @@ public final class CPattern
     private final boolean m_bIsLiked;
     private final boolean m_bIsHot;
     
+    //ds probability of like
+    private double m_dLikeliness = 0.0;
+    
     //ds tags vector
     private final Vector< CTag > m_vecTags;
     
     //ds constructor
     public CPattern( final int p_iID, 
-                     final String p_strTitle, 
+                     final String p_strTitle,
                      final boolean p_bIsAnimated,
                      final boolean p_bIsPhoto,
                      final boolean p_bIsText,
@@ -55,6 +59,23 @@ public final class CPattern
         m_vecTags     = p_cDataPoint.m_vecTags;
     }
     
+    //ds comparator class
+    public static final class CComparator implements Comparator< CPattern >
+    {
+        //ds comparing by probabilities
+        public int compare( CPattern p_cPattern1, CPattern p_cPattern2 )
+        {
+            //ds check if equal
+            if( p_cPattern1.m_dLikeliness == p_cPattern2.m_dLikeliness ){ return 0; }
+            
+            //ds check if bigger
+            if( p_cPattern1.m_dLikeliness > p_cPattern2.m_dLikeliness ){ return 1; }
+            
+            //ds only smaller left
+            return -1;
+        }
+    }
+    
     //ds getters
     public final int getID( ){ return m_iID; }
     public final String getTitle( ){ return m_strTitle; }
@@ -64,4 +85,8 @@ public final class CPattern
     public final boolean isLiked( ){ return m_bIsLiked; }
     public final boolean isHot( ){ return m_bIsHot; }
     public final Vector< CTag > getTags( ){ return m_vecTags; }
+    
+    //ds probability
+    public final double getLikeliness( ){ return m_dLikeliness; }
+    public final void setLikeliness( final double p_dLikeliness ){ m_dLikeliness = p_dLikeliness; }
 }

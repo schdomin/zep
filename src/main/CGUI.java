@@ -407,7 +407,7 @@ public final class CGUI implements ActionListener, KeyListener
         else
         {
             //ds set the image to the GUI field (resized)
-            m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( m_cMySQLManager.getBufferedImage( p_cPattern ), m_iWindowWidth-5, m_iWindowHeight-125 ) ) );
+            m_cLabelImage.setIcon( new ImageIcon( CImageHandler.getResizedImage( m_cMySQLManager.getBufferedImage( p_cPattern ), m_iWindowWidth-25, m_iWindowHeight-125 ) ) );
         }
         
         //ds update image info

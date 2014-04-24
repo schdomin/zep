@@ -13,7 +13,6 @@ import utility.CIndexer;
 //ds custom imports
 import utility.CLogger;
 import utility.CMySQLManager;
-import utility.CPair;
 import utility.CPattern;
 import utility.CTag;
 import exceptions.CZEPEoIException;
@@ -54,7 +53,7 @@ public final class CLearnerBayes
     //ds counters 
     private int m_iCounterLikes         = 0;
     private int m_iCounterDislikes      = 0;
-    private int m_iCounterLikesAnimated = 0; private int m_iCounterLikesNotAnimated = 0;
+    //private int m_iCounterLikesAnimated = 0; private int m_iCounterLikesNotAnimated = 0; TODO GIFS
     private int m_iCounterLikesPhoto    = 0; private int m_iCounterLikesNotPhoto    = 0;
     private int m_iCounterLikesText     = 0; private int m_iCounterLikesNotText     = 0;
     private int m_iCounterLikesLiked    = 0; private int m_iCounterLikesNotLiked    = 0;
@@ -153,9 +152,9 @@ public final class CLearnerBayes
             //ds increase counter
             ++m_iCounterLikes;
             
-            //ds specifics
-            if( p_cLastPattern.isAnimated( ) ){ ++m_iCounterLikesAnimated; }
-            else                              { ++m_iCounterLikesNotAnimated; }
+            //ds specifics TODO GIFS
+            //if( p_cLastPattern.isAnimated( ) ){ ++m_iCounterLikesAnimated; }
+            //else                              { ++m_iCounterLikesNotAnimated; }
             if( p_cLastPattern.isPhoto( ) )   { ++m_iCounterLikesPhoto; }
             else                              { ++m_iCounterLikesNotPhoto; }
             if( p_cLastPattern.isText( ) )    { ++m_iCounterLikesText; }
@@ -243,9 +242,9 @@ public final class CLearnerBayes
                 //ds decrease counter
                 --m_iCounterLikes; 
                 
-                //ds specifics
-                if( cPattern.isAnimated( ) ){ --m_iCounterLikesAnimated; }
-                else                        { --m_iCounterLikesNotAnimated; }
+                //ds specifics TODO GIFS
+                //if( cPattern.isAnimated( ) ){ --m_iCounterLikesAnimated; }
+                //else                        { --m_iCounterLikesNotAnimated; }
                 if( cPattern.isPhoto( ) )   { --m_iCounterLikesPhoto; }
                 else                        { --m_iCounterLikesNotPhoto; }
                 if( cPattern.isText( ) )    { --m_iCounterLikesText; }
@@ -320,7 +319,7 @@ public final class CLearnerBayes
         //ds reset counters 
         m_iCounterLikes         = 0;
         m_iCounterDislikes      = 0;
-        m_iCounterLikesAnimated = 0; m_iCounterLikesNotAnimated = 0;
+        //m_iCounterLikesAnimated = 0; m_iCounterLikesNotAnimated = 0; TODO GIFS
         m_iCounterLikesPhoto    = 0; m_iCounterLikesNotPhoto    = 0;
         m_iCounterLikesText     = 0; m_iCounterLikesNotText     = 0;
         m_iCounterLikesLiked    = 0; m_iCounterLikesNotLiked    = 0;
@@ -473,8 +472,8 @@ public final class CLearnerBayes
     {
         //ds conditional probabilities
         final double dProbabilityLike              = 0.5 + ( double )( m_iCounterLikes-m_iCounterDislikes )/( 2*m_iNumberOfPatterns );
-        final double dProbabilityAnimatedIfLike    = ( double )m_iCounterLikesAnimated/m_iNumberOfPatterns;
-        final double dProbabilityNotAnimatedIfLike = ( double )m_iCounterLikesNotAnimated/m_iNumberOfPatterns;
+        //final double dProbabilityAnimatedIfLike    = ( double )m_iCounterLikesAnimated/m_iNumberOfPatterns;
+        //final double dProbabilityNotAnimatedIfLike = ( double )m_iCounterLikesNotAnimated/m_iNumberOfPatterns;
         final double dProbabilityPhotoIfLike       = ( double )m_iCounterLikesPhoto/m_iNumberOfPatterns;
         final double dProbabilityNotPhotoIfLike    = ( double )m_iCounterLikesNotPhoto/m_iNumberOfPatterns;
         final double dProbabilityTextIfLike        = ( double )m_iCounterLikesText/m_iNumberOfPatterns;
@@ -485,8 +484,8 @@ public final class CLearnerBayes
         final double dProbabilityNotHotIfLike      = ( double )m_iCounterLikesNotHot/m_iNumberOfPatterns; 
         
         //ds absolute probabilities
-        final double dProbabilityAnimated    = m_mapAbsoluteProbabilities.get( -1 );
-        final double dProbabilityNotAnimated = 1-m_mapAbsoluteProbabilities.get( -1 );
+        //final double dProbabilityAnimated    = m_mapAbsoluteProbabilities.get( -1 );
+        //final double dProbabilityNotAnimated = 1-m_mapAbsoluteProbabilities.get( -1 );
         final double dProbabilityPhoto       = m_mapAbsoluteProbabilities.get( -2 );
         final double dProbabilityNotPhoto    = 1-m_mapAbsoluteProbabilities.get( -2 );
         final double dProbabilityText        = m_mapAbsoluteProbabilities.get( -3 );
@@ -496,9 +495,6 @@ public final class CLearnerBayes
         final double dProbabilityHot         = m_mapAbsoluteProbabilities.get( -5 );
         final double dProbabilityNotHot      = 1-m_mapAbsoluteProbabilities.get( -5 );
         
-        //ds vector to sort patterns by probability
-        Vector< CPair< Double, CPattern > > vecPatternsWithProbabilities = new Vector< CPair< Double, CPattern > >( p_vecPatterns.size( ) );
-        
         //ds for each pattern
         for( CPattern cPattern: p_vecPatterns )
         {
@@ -506,7 +502,7 @@ public final class CLearnerBayes
             double dNominator   = 1.0;
             double dDenominator = 1.0;
             
-            //ds check which case we have
+            /*ds check which case we have TODO GIFs
             if( cPattern.isAnimated( ) )
             {
                 dNominator   *= dProbabilityAnimatedIfLike;
@@ -516,7 +512,7 @@ public final class CLearnerBayes
             {
                 dNominator   *= dProbabilityNotAnimatedIfLike;
                 dDenominator *= dProbabilityNotAnimated;
-            }
+            }*/
             
             if( cPattern.isPhoto( ) )
             {
@@ -561,44 +557,25 @@ public final class CLearnerBayes
                 dNominator   *= dProbabilityNotHotIfLike;
                 dDenominator *= dProbabilityNotHot;
             }
-            
-            //ds sum for the probability of tags (since they are from a limited pool)
-            double dProbabilityTags = 0.0;
-
+          
             //ds now for the tags
             for( CTag cTag: cPattern.getTags( ) )
             {
                 //ds tag id
                 final int iIDTag = cTag.getID( );
                 
-                dNominator       *= ( double )m_mapCounterLikesTag.get( iIDTag )/m_mapNumbersOfTag.get( iIDTag );
-                dProbabilityTags += m_mapAbsoluteProbabilities.get( iIDTag );
+                dNominator   *= ( double )m_mapCounterLikesTag.get( iIDTag )/m_mapNumbersOfTag.get( iIDTag );
+                dDenominator *= m_mapAbsoluteProbabilities.get( iIDTag );
             }
-            
-            //ds update denominator
-            dDenominator *= dProbabilityTags;
 
-            //ds set the entry to the map
-            vecPatternsWithProbabilities.add( CPair.of( ( dNominator*dProbabilityLike )/dDenominator, cPattern ) );         
+            //ds modifiy the probability entry
+            cPattern.setLikeliness( ( dNominator*dProbabilityLike )/dDenominator );         
         }
         
         //ds we now sort the vector
-        Collections.sort( vecPatternsWithProbabilities );
-        
-        //ds log maximum probability
-        m_cMySQLManager.logProbability( m_strUsername, vecPatternsWithProbabilities.firstElement( ).first );
-        
-        //ds sorted pattern vector to return
-        Vector< CPattern > vecPatterns = new Vector< CPattern >( vecPatternsWithProbabilities.size( ) );
-        
-        //ds add all elements to the return vector
-        for( CPair< Double, CPattern > cPair: vecPatternsWithProbabilities )
-        {
-            //ds add only the pattern
-            vecPatterns.add( cPair.second );
-        }
+        Collections.sort( p_vecPatterns, new CPattern.CComparator( ) );
    
         //ds return the sorted patterns
-        return vecPatterns;
+        return p_vecPatterns;
     }
 }
