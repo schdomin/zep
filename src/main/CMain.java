@@ -39,12 +39,12 @@ public final class CMain
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "|                                         CONFIGURATION                                         |" );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowWidth=" + m_iWindowWidth );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowHeight=" + m_iWindowHeight );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLUsername=" + m_strMySQLUsername );
+        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowWidth=" + m_iWindowWidth );
+        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowHeight=" + m_iWindowHeight );
+        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLUsername=" + m_strMySQLUsername );
         //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLPassword=" + m_strMySQLPassword );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLDriver=" + m_strMySQLDriver );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLServerURL=" + m_strMySQLServerURL );
+        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLDriver=" + m_strMySQLDriver );
+        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLServerURL=" + m_strMySQLServerURL );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "|                                          LAUNCH PHASE                                         |" );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
