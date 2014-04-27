@@ -12,7 +12,7 @@ import utility.CMySQLManager;
 import learning.CLearnerBayes;
 //import learning.CLearnerRandom;
 
-public final class CMain
+public abstract class CMain
 {
     //ds hardcoded values
     private static final String m_strConfigFileName = "config.txt";
@@ -22,7 +22,7 @@ public final class CMain
     private static int m_iWindowHeight        = 800;
     
     //ds default configuration parameters: mysql
-    private static String m_strMySQLDriver    = "com.mysql.jdbc.Driver";
+    //private static String m_strMySQLDriver    = "com.mysql.jdbc.Driver";
     private static String m_strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
     private static String m_strMySQLUsername  = "domis";
     private static String m_strMySQLPassword  = "N0effort";

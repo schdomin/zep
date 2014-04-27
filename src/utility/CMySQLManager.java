@@ -291,13 +291,13 @@ public final class CMySQLManager
             final int iCurrentTotalTags = _getMaxIDFromTable( "id_mapping", "mappings" );
             
             //ds open writer - locally because we want the data written in case the process dies unexpectedly
-            FileWriter writer = new FileWriter( m_strLogFileTagGrowth, true );
+            FileWriter cWriter = new FileWriter( m_strLogFileTagGrowth, true );
             
             //ds append entry
-            writer.append( iID_DataPoint + "," + iID_TagCurrent + "," + iCurrentTotalTags + "\n" );
+            cWriter.append( iID_DataPoint + "," + iID_TagCurrent + "," + iCurrentTotalTags + "\n" );
             
             //ds close writer
-            writer.close( );
+            cWriter.close( );
         }
         else
         {
@@ -996,6 +996,170 @@ public final class CMySQLManager
             //ds available
             return true;
         }
+    }
+    
+    //ds get possible cutoff values
+    public final Vector< Integer > getCutoffValues( ) throws SQLException
+    {
+        //ds query on the tag table
+        final PreparedStatement cRetrieveTags = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags`" );
+        cRetrieveTags.setQueryTimeout( m_iMySQLTimeoutMS ); 
+        
+        //ds get the result
+        final ResultSet cResultSetTags = cRetrieveTags.executeQuery( );
+        
+        //ds vector with cutoff values, decreasing
+        Vector< Integer > vecCutoffValues = new Vector< Integer >( 0 );
+        
+        //ds for all tags
+        while( cResultSetTags.next( ) )
+        {
+            //ds get the frequency
+            final int iFrequency = cResultSetTags.getInt( "frequency" );
+            
+            //ds check if we dont have an entry yet
+            if( !vecCutoffValues.contains( iFrequency ) )
+            {
+                //ds add the frequency value
+                vecCutoffValues.add( iFrequency );
+            }
+        }
+        
+        //ds return
+        return vecCutoffValues;
+    }
+    
+    //ds get the number of tag types for the desired cutoff
+    public final int getNumberOfTagTypesForCutoff( final int p_iTagCutoffFrequency ) throws SQLException
+    {
+        //ds query on the tag table
+        final PreparedStatement cRetrieveTags = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `frequency` >= ( ? )" );
+        cRetrieveTags.setInt( 1, p_iTagCutoffFrequency );
+        cRetrieveTags.setQueryTimeout( m_iMySQLTimeoutMS ); 
+        
+        //ds get the result
+        final ResultSet cResultSetTag = cRetrieveTags.executeQuery( );
+        
+        //ds counter
+        int iCounter = 0;
+        
+        //ds simply count the results (TODO UGLY)
+        while( cResultSetTag.next( ) )
+        {
+            //ds one more entry
+            ++iCounter;
+        }
+        
+        //ds return the counter
+        return iCounter;
+    }
+    
+    //ds counts datapoints per current cutoff (SLOW)
+    public final Map< Integer, Integer > getNumberOfDataPointsForCutoffs( final Vector< Integer > p_vecTagCutoffFrequencies ) throws SQLException, MalformedURLException
+    {
+        //ds query on the datapoint table
+        final PreparedStatement cRetrieveDataPoints = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints`" );
+        cRetrieveDataPoints.setQueryTimeout( m_iMySQLTimeoutMS ); 
+        
+        //ds get the result
+        final ResultSet cResultSetDataPoint = cRetrieveDataPoints.executeQuery( );
+        
+        //ds result map with datapoint entries per cutoff
+        Map< Integer, Integer > mapDataPointsCutoff = new HashMap< Integer, Integer >( p_vecTagCutoffFrequencies.size( ) );
+        
+        //ds datapoints processed counter
+        int iCounterDataPoints = 0;
+        
+        //ds check the current datapoint and so on
+        while( cResultSetDataPoint.next( ) )
+        {
+            //ds get the datapoint
+            final CDataPoint cDataPoint = _getDataPointFromResultSet( cResultSetDataPoint );
+            
+            //ds get maximum frequency
+            final int iMaximumFrequency = CTag.getMaximumFrequency( cDataPoint.getTags( ) );
+            
+            //ds check over all frequencies (starting at maximum frequency)
+            for( int iFrequency: p_vecTagCutoffFrequencies )
+            {
+                //ds if we fit in
+                if( iFrequency <= iMaximumFrequency )
+                {
+                    //ds add the datapoint - if exists
+                    if( mapDataPointsCutoff.containsKey( iFrequency ) )
+                    {
+                        //ds increase
+                        mapDataPointsCutoff.put( iFrequency, mapDataPointsCutoff.get( iFrequency )+1 );
+                    }
+                    else
+                    {
+                        //ds first datapoint for this frequency
+                        mapDataPointsCutoff.put( iFrequency, 1 );
+                    }
+                    
+                    //ds done for this datapoint
+                    break;
+                }
+            }
+            
+            ++iCounterDataPoints;
+            
+            //ds info
+            if( 0 == iCounterDataPoints%100 )
+            {
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getNumberOfDataPointsForCutoff) processed datapoints: " + iCounterDataPoints );
+            }
+        }
+        
+        //ds return the counter
+        return mapDataPointsCutoff;
+    }
+    
+    //ds counts datapoints per current cutoff (SLOW)
+    public final void writeCSVFromLogLearner( final String p_strUsername ) throws SQLException, IOException
+    {
+        //ds query on the learners table
+        final PreparedStatement cRetrieveDataPoints = m_cMySQLConnection.prepareStatement( "SELECT * FROM `log_learner` WHERE `username` = ( ? )" );
+        cRetrieveDataPoints.setString( 1, p_strUsername );
+        cRetrieveDataPoints.setQueryTimeout( m_iMySQLTimeoutMS ); 
+        
+        //ds get the result
+        final ResultSet cResultSetDataPoint = cRetrieveDataPoints.executeQuery( );
+        
+        //ds counters
+        int iCounterDataPoint = 0;
+        int iCounterNettoLike = 0;
+        
+        //ds open writer
+        FileWriter cWriter = new FileWriter( "users/" + p_strUsername + ".csv", true );
+        
+        //ds check all retrieved datapoints
+        while( cResultSetDataPoint.next( ) )
+        {   
+            //ds get probability information
+            final double dProbability = cResultSetDataPoint.getDouble( "probability" );
+            
+            //ds get labeling information - if liked
+            if( cResultSetDataPoint.getBoolean( "liked" ) )
+            {
+                //ds positive netto
+                ++iCounterNettoLike;
+            }
+            else
+            {
+                //ds negative netto
+                --iCounterNettoLike;
+            }
+            
+            //ds set info
+            cWriter.append( iCounterDataPoint + "," + iCounterNettoLike + "," + dProbability + "\n" );
+            
+            //ds next datapoint
+            ++iCounterDataPoint;
+        }
+        
+        //ds close writer
+        cWriter.close( );
     }
     
     /*ds updater function

@@ -1,5 +1,7 @@
 package utility;
 
+import java.util.Vector;
+
 //ds triplet to hold the tag information: id/value/frequency
 public final class CTag
 {
@@ -21,4 +23,23 @@ public final class CTag
     public final int getID( ){ return m_iID; }
     public final String getValue( ){ return m_strValue; }
     public final int getFrequency( ){ return m_iFrequency; }
+    
+    //ds get maximum frequency from tag set
+    public static int getMaximumFrequency( final Vector< CTag > p_vecTags )
+    {
+        //ds current frequency
+        int iMaximumFrequency = 0;
+        
+        //ds loop over tags
+        for( CTag cTag: p_vecTags )
+        {
+            //ds get frequency
+            final int iFrequency = cTag.getFrequency( );
+            
+            //ds if we are above maximum update it
+            if( iMaximumFrequency < iFrequency ){ iMaximumFrequency = iFrequency; }
+        }
+        
+        return iMaximumFrequency;
+    }
 }
