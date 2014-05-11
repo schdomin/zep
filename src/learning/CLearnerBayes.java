@@ -432,8 +432,14 @@ public final class CLearnerBayes
                 //ds get random index
                 final int iIDRandom = new Random( ).nextInt( m_vecDataPool.size( ) );
                 
+                //ds get the pattern
+                CPattern cRandomPattern = m_vecDataPool.get( iIDRandom ).clone( );
+                
+                //ds set random flag
+                cRandomPattern.setRandom( true );
+                
                 //ds pick a random pattern and add it
-                vecRandomPool.add( m_vecDataPool.get( iIDRandom ).clone( ) );
+                vecRandomPool.add( cRandomPattern );
                 
                 //ds remove it from the pool
                 m_vecDataPool.remove( iIDRandom );

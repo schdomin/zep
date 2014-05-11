@@ -3,9 +3,11 @@ package main;
 import java.sql.SQLException;
 
 //ds custom imports
+import exceptions.CZEPConfigurationException;
 import exceptions.CZEPEoIException;
 import exceptions.CZEPGUIException;
 import exceptions.CZEPMySQLManagerException;
+import utility.CImporter;
 import utility.CLogger;
 import utility.CMySQLManager;
 import learning.CLearnerBayes;
@@ -17,22 +19,43 @@ public abstract class CMain
     private static final String m_strConfigFileName = "config.txt";
     
     //ds default configuration parameters: gui 
-    private static int m_iWindowWidth         = 1200;
-    private static int m_iWindowHeight        = 800;
+    private static int m_iWindowWidth  = -1;
+    private static int m_iWindowHeight = -1;
     
     //ds default configuration parameters: mysql
-    private static String m_strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
-    private static String m_strMySQLUsername  = "domis";
-    private static String m_strMySQLPassword  = "N0passw0rd";
+    private static String m_strMySQLServerURL = "";
+    private static String m_strMySQLUsername  = "";
+    private static String m_strMySQLPassword  = "";
     
     //ds MAIN
     public static void main( String[] args )
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) ZEP launched" );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) importing configuration from " + m_strConfigFileName + " .." );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) importing configuration from [" + m_strConfigFileName + "]" );
         
-        //ds start parsing the configuration file in fixed order
-        //TODO
+        try
+        {
+            //ds GUI
+            m_iWindowWidth  = Integer.valueOf( CImporter.getAttribute( m_strConfigFileName, "m_iWindowWidth" ) );
+            m_iWindowHeight = Integer.valueOf( CImporter.getAttribute( m_strConfigFileName, "m_iWindowHeight" ) );
+            
+            //ds MySQL
+            m_strMySQLServerURL = CImporter.getAttribute( m_strConfigFileName, "m_strMySQLServerURL" );
+            m_strMySQLUsername  = CImporter.getAttribute( m_strConfigFileName, "m_strMySQLUsername" );
+            m_strMySQLPassword  = CImporter.getAttribute( m_strConfigFileName, "m_strMySQLPassword" );
+        }
+        catch( CZEPConfigurationException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPConfigurationException: " + e.getMessage( ) + " - error during config file parsing" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            return;            
+        }
+        catch( NumberFormatException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) NumberFormatException: " + e.getMessage( ) + " - could not convert attribute values to numerical" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            return;            
+        }
         
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "|                                         CONFIGURATION                                         |" );
@@ -40,7 +63,6 @@ public abstract class CMain
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowWidth=" + m_iWindowWidth );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowHeight=" + m_iWindowHeight );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLUsername=" + m_strMySQLUsername );
-        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLPassword=" + m_strMySQLPassword );
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLServerURL=" + m_strMySQLServerURL );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "|                                          LAUNCH PHASE                                         |" );

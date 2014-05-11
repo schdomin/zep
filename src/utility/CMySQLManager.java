@@ -22,6 +22,7 @@ import javax.swing.ImageIcon;
 
 //ds custom imports
 import utility.CTag;
+import exceptions.CZEPConfigurationException;
 import exceptions.CZEPMySQLManagerException;
 
 public final class CMySQLManager
@@ -63,13 +64,26 @@ public final class CMySQLManager
     
     //ds standalone
     public static void main( String[] args )
-    {
+    {        
         //ds default configuration parameters: mysql
-        //final String strMySQLDriver    = "com.mysql.jdbc.Driver";
-        final String strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
-        final String strMySQLUsername  = "domis";
-        final String strMySQLPassword  = "N0effort";
+        String strMySQLServerURL = "";
+        String strMySQLUsername  = "";
+        String strMySQLPassword  = "";
         final int iTagCutoffFrequency  = 10;
+        
+        try
+        {
+            //ds MySQL
+            strMySQLServerURL = CImporter.getAttribute( "config.txt", "m_strMySQLServerURL" );
+            strMySQLUsername  = CImporter.getAttribute( "config.txt", "m_strMySQLUsername" );
+            strMySQLPassword  = CImporter.getAttribute( "config.txt", "m_strMySQLPassword" );
+        }
+        catch( CZEPConfigurationException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) CZEPConfigurationException: " + e.getMessage( ) + " - error during config file parsing" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) aborted" );
+            return;            
+        }
         
         //ds allocate the MySQL manager
         final CMySQLManager cMySQLManager = new CMySQLManager( strMySQLServerURL, strMySQLUsername, strMySQLPassword );
@@ -228,7 +242,7 @@ public final class CMySQLManager
             cStatementInsertImage.setInt( 1, iID_DataPoint );
             cStatementInsertImage.setBlob( 2, new URL( p_cDataPoint.getURL( ).toString( ) ).openStream( ) );
             cStatementInsertImage.setQueryTimeout( m_iMySQLTimeoutMS );
-            cStatementInsertImage.executeQuery( );
+            cStatementInsertImage.execute( );
             
             //ds logging last tag id
             int iID_TagCurrent = _getMaxIDFromTable( "id_tag", "tags" );
@@ -305,7 +319,7 @@ public final class CMySQLManager
         }
     }
     
-    //ds access function: single datapoint by id
+    /*ds access function: single datapoint by id
     public final CDataPoint getDataPointByID( final int p_iID_DataPoint ) throws SQLException, MalformedURLException, CZEPMySQLManagerException
     {
         //ds query for the id
@@ -326,7 +340,7 @@ public final class CMySQLManager
         {
             throw new CZEPMySQLManagerException( "could not retrieve datapoint from MySQL database - ID: " + p_iID_DataPoint );
         }
-    }
+    }*/
     
     /*ds fetches a set of datapoints
     public final Vector< CDataPoint > getDataPointsByIDRange( final int p_iIDStart, final int p_iIDEnd ) throws SQLException, MalformedURLException, CZEPMySQLManagerException
@@ -816,13 +830,13 @@ public final class CMySQLManager
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(computeProbabilities) computing probabilities for cutoff frequency: " +  p_iTagCutoffFrequency );
         
         //ds table names
-        final String strTagCutoff     = Integer.toString( p_iTagCutoffFrequency );
+        final String strTagCutoff          = Integer.toString( p_iTagCutoffFrequency );
         final String strTableProbabilities = "cutoff_" + strTagCutoff + "_probabilities";
         final String strTablePatterns      = "cutoff_" + strTagCutoff + "_patterns";
         final String strTableTags          = "cutoff_" + strTagCutoff + "_tags";
         
         //ds get total values
-        final int iTotalNumberOfPatterns = _getMaxIDFromTable( "id_datapoint", strTablePatterns );
+        final int iTotalNumberOfPatterns = _getMaxIDFromTable( "id_pattern", strTablePatterns );
         
         //ds simple feature counters
         int iCounterAnimated = 0;
@@ -831,8 +845,8 @@ public final class CMySQLManager
         int iCounterLiked    = 0;
         int iCounterHot      = 0;
         
-        //ds we have to loop through the whole datapoint table
-        final PreparedStatement cRetrievePattern = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTablePatterns + "` WHERE `id_datapoint` >= 1" );     
+        //ds we have to loop through the whole pattern table
+        final PreparedStatement cRetrievePattern = m_cMySQLConnection.prepareStatement( "SELECT * FROM `" + strTablePatterns + "`" );     
         cRetrievePattern.setQueryTimeout( m_iMySQLTimeoutMS );
         
         //ds get the result
@@ -1279,7 +1293,7 @@ public final class CMySQLManager
     private final int _getMaxIDFromTable( final String p_strKeyID, final String p_strTable ) throws SQLException, CZEPMySQLManagerException
     {
         //ds determine the current max id in the database
-        final PreparedStatement cStatementCheck = m_cMySQLConnection.prepareStatement( "SELECT MAX(`"+p_strKeyID+"`) FROM `"+p_strTable+"`" );
+        final PreparedStatement cStatementCheck = m_cMySQLConnection.prepareStatement( "SELECT MAX(`"+p_strKeyID+"`) FROM `"+p_strTable+"` LIMIT 1" );
         
         //ds set timeout
         cStatementCheck.setQueryTimeout( m_iMySQLTimeoutMS );

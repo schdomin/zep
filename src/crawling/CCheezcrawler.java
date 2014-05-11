@@ -16,12 +16,14 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.opencv.core.Core;
 
+import exceptions.CZEPConfigurationException;
 //ds custom
 import exceptions.CZEPConversionException;
 import exceptions.CZEPMySQLManagerException;
 import utility.CConverter;
 import utility.CDataPoint;
 import utility.CImageHandler;
+import utility.CImporter;
 import utility.CLogger;
 import utility.CMySQLManager;
 import utility.CTag;
@@ -72,10 +74,23 @@ public class CCheezcrawler extends Thread
     public static void main( String[] args ) throws MalformedURLException
     {
         //ds default configuration parameters: mysql
-        //final String strMySQLDriver    = "com.mysql.jdbc.Driver";
-        final String strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
-        final String strMySQLUsername  = "domis";
-        final String strMySQLPassword  = "N0effort";
+        String strMySQLServerURL = "";
+        String strMySQLUsername  = "";
+        String strMySQLPassword  = "";
+        
+        try
+        {
+            //ds MySQL
+            strMySQLServerURL = CImporter.getAttribute( "config.txt", "m_strMySQLServerURL" );
+            strMySQLUsername  = CImporter.getAttribute( "config.txt", "m_strMySQLUsername" );
+            strMySQLPassword  = CImporter.getAttribute( "config.txt", "m_strMySQLPassword" );
+        }
+        catch( CZEPConfigurationException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPConfigurationException: " + e.getMessage( ) + " - error during config file parsing" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+            return;            
+        }
         
         //ds default configuration parameters: cheezcrawler
         final URL cMasterURL_Cheezcrawler      = new URL( "http://memebase.cheezburger.com/" );
