@@ -5,16 +5,15 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.Vector;
 
-import utility.CIndexer;
 //ds custom imports
 import utility.CLogger;
 import utility.CMySQLManager;
 import utility.CPattern;
 import utility.CTag;
 import exceptions.CZEPEoIException;
-import exceptions.CZEPLearnerException;
 import exceptions.CZEPMySQLManagerException;
 import exceptions.CZEPnpIException;
 
@@ -25,19 +24,19 @@ public final class CLearnerBayes
 
     //ds data pool control elements
     private final int m_iSizeSelection   = 10;
-    private final int m_iSizeDatapool    = 100;
     private int m_iIndexSelection        = 0;
     private int m_iIndexPrevious         = 0;
     private int m_iCounterClassification = 0;
     
     //ds pools
-    private Vector< CPattern > m_vecDataPool          = null;
-    private Vector< CPattern > m_vecSelectionPool     = null;
-    private Vector< CPattern > m_vecSelectionPoolNext = null;
+    private Vector< CPattern > m_vecDataPool          = null; //ds contains all data at start (SHRINKING for each classification)
+    private Vector< CPattern > m_vecSelectionPool     = null; //ds contains all data selected for picks (GROWING for each classification)
+    private Vector< CPattern > m_vecSelectionPoolNext = null; //ds contains next picks (CONSTANT)
     
     //ds random sample frequency - every n times (for 1 there is no classification done forever)
-    private final int m_iIntervalRandomSample = 5;
-    private boolean m_bWasPreviousRequested   = false;
+    private final int m_iIntervalRandomSample  = 1;
+    private final int m_iNumberOfRandomSamples = 1;
+    private boolean m_bWasPreviousRequested    = false;
     
     //ds simple communication with main
     private boolean m_bIsReadyToClassify = false;
@@ -70,9 +69,6 @@ public final class CLearnerBayes
     //ds mysql manager
     private final CMySQLManager m_cMySQLManager;
     
-    //ds indexer
-    private CIndexer m_cIndexer = null;
-    
     //ds username
     private String m_strUsername = null;
     
@@ -90,7 +86,7 @@ public final class CLearnerBayes
     }
     
     //ds launcher
-    public void launch( ) throws SQLException, CZEPMySQLManagerException, CZEPEoIException
+    public void launch( ) throws CZEPMySQLManagerException, CZEPEoIException, SQLException
     {
         //ds check if empty
         if( m_cMySQLManager.isEmpty( ) )
@@ -106,7 +102,7 @@ public final class CLearnerBayes
         m_mapAbsoluteProbabilities = m_cMySQLManager.getProbabilityMap( m_iTagCutoffFrequency );
         
         //ds get the available tag ids
-        final Vector< Integer > vecTagIDs = m_cMySQLManager.getTagIDs( m_iTagCutoffFrequency );
+        final Vector< Integer > vecTagIDs = new Vector< Integer >( m_cMySQLManager.getTagIDs( m_iTagCutoffFrequency ) );
         
         //ds allocate counters map
         m_mapCounterLikesTag = new HashMap< Integer, Integer >( vecTagIDs.size( ) );
@@ -128,13 +124,10 @@ public final class CLearnerBayes
             //ds escape
             throw new CZEPEoIException( "invalid fetching from database" );             
         }
-        
-        //ds initialize indexer to pick patterns
-        m_cIndexer = new CIndexer( m_iNumberOfPatterns );
     }
     
     //ds simple getter - does not change the request counter for an update cycle
-    public final CPattern getFirstDataPoint( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException
+    public final CPattern getFirstDataPoint( )
     {
         //ds register pick
         m_vecIDsHistory.add( m_vecSelectionPool.get( 0 ).getID( ) );
@@ -144,7 +137,7 @@ public final class CLearnerBayes
     }
     
     //ds returns the next image
-    public final CPattern getNextPattern( final ELearnerLabel p_eFlag, final CPattern p_cLastPattern ) throws CZEPEoIException, MalformedURLException, CZEPMySQLManagerException, SQLException, CZEPLearnerException
+    public final CPattern getNextPattern( final ELearnerLabel p_eFlag, final CPattern p_cLastPattern ) throws SQLException
     {
         //ds check if we land here after a previous call - which means we have to undo the settings for that pattern
         if( m_bWasPreviousRequested )
@@ -152,15 +145,26 @@ public final class CLearnerBayes
             //ds undo the pick for the previous pattern before registering the new settings
             _undoPick( p_cLastPattern );
             
+            //ds update log
+            m_cMySQLManager.logUpdatePattern( m_strUsername, p_cLastPattern, ELearnerLabel.LIKE == p_eFlag );
+            
+            //ds evaluate the pick again
+            _evaluatePick( p_cLastPattern, p_eFlag );
+            
             //ds disable previous phase
             m_bWasPreviousRequested = false;
             
             //ds decrease pick counter by one, we want to see the image again at the previous start
             --m_iIndexSelection;
         }
-        
-        //ds evaluate the pick
-        _evaluatePick( p_cLastPattern, p_eFlag );
+        else
+        {
+            //ds log to learner
+            m_cMySQLManager.logAddPattern( m_strUsername, p_cLastPattern, ELearnerLabel.LIKE == p_eFlag );
+            
+            //ds evaluate the pick normally
+            _evaluatePick( p_cLastPattern, p_eFlag );
+        }
         
         //ds increase pick counter
         ++m_iIndexSelection;
@@ -178,7 +182,7 @@ public final class CLearnerBayes
             m_bIsReadyToClassify = true;
             
             //ds update selection pool
-            m_vecSelectionPool.addAll( m_vecSelectionPoolNext );
+            m_vecSelectionPool.addAll( new Vector< CPattern >( m_vecSelectionPoolNext ) );
             
             //ds clear next
             m_vecSelectionPoolNext.clear( );
@@ -189,7 +193,7 @@ public final class CLearnerBayes
     }
     
     //ds returns the previous image - does not change the request counter for an update cycle
-    public final CPattern getPreviousPattern( ) throws CZEPnpIException, MalformedURLException, CZEPMySQLManagerException, SQLException
+    public final CPattern getPreviousPattern( ) throws CZEPnpIException
     {
         //ds check if its the first previous click
         if( !m_bWasPreviousRequested )
@@ -235,14 +239,14 @@ public final class CLearnerBayes
             //ds specifics TODO GIFS
             //if( p_cLastPattern.isAnimated( ) ){ ++m_iCounterLikesAnimated; }
             //else                              { ++m_iCounterLikesNotAnimated; }
-            if( p_cPattern.isPhoto( ) )   { ++m_iCounterLikesPhoto; }
-            else                              { ++m_iCounterLikesNotPhoto; }
-            if( p_cPattern.isText( ) )    { ++m_iCounterLikesText; }
-            else                              { ++m_iCounterLikesNotText; }
-            if( p_cPattern.isLiked( ) )   { ++m_iCounterLikesLiked; }
-            else                              { ++m_iCounterLikesNotLiked; }
-            if( p_cPattern.isHot( ) )     { ++m_iCounterLikesHot; }
-            else                              { ++m_iCounterLikesNotHot; }
+            if( p_cPattern.isPhoto( ) )         { ++m_iCounterLikesPhoto; }
+            else                                { ++m_iCounterLikesNotPhoto; }
+            if( p_cPattern.isText( ) )          { ++m_iCounterLikesText; }
+            else                                { ++m_iCounterLikesNotText; }
+            if( p_cPattern.isLiked( ) )         { ++m_iCounterLikesLiked; }
+            else                                { ++m_iCounterLikesNotLiked; }
+            if( p_cPattern.isHot( ) )           { ++m_iCounterLikesHot; }
+            else                                { ++m_iCounterLikesNotHot; }
             
             //ds and for each tag
             for( CTag cTag: p_cPattern.getTags( ) )
@@ -253,17 +257,11 @@ public final class CLearnerBayes
                 //ds increment entry by 1
                 m_mapCounterLikesTag.put( iIDTag, m_mapCounterLikesTag.get( iIDTag )+1 );
             }
-            
-            //ds log to learner
-            m_cMySQLManager.logPattern( m_strUsername, p_cPattern, true );
         }
         else if( ELearnerLabel.DISLIKE == p_eLabel )
         {
             //ds increase counter
             ++m_iCounterDislikes;
-            
-            //ds log to learner
-            m_cMySQLManager.logPattern( m_strUsername, p_cPattern, false );
         }
         
         //ds register pick
@@ -279,6 +277,8 @@ public final class CLearnerBayes
         //ds get the label for the last action
         final ELearnerLabel eLabel = m_mapLabels.get( iPreviousID );
         
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(_undoPick) Relabeled ID: [" + iPreviousID + "]" );
+        
         //ds decrease according counters
         if( ELearnerLabel.LIKE == eLabel )
         {
@@ -289,13 +289,13 @@ public final class CLearnerBayes
             //if( cPattern.isAnimated( ) ){ --m_iCounterLikesAnimated; }
             //else                        { --m_iCounterLikesNotAnimated; }
             if( p_cPattern.isPhoto( ) )   { --m_iCounterLikesPhoto; }
-            else                        { --m_iCounterLikesNotPhoto; }
+            else                          { --m_iCounterLikesNotPhoto; }
             if( p_cPattern.isText( ) )    { --m_iCounterLikesText; }
-            else                        { --m_iCounterLikesNotText; }
+            else                          { --m_iCounterLikesNotText; }
             if( p_cPattern.isLiked( ) )   { --m_iCounterLikesLiked; }
-            else                        { --m_iCounterLikesNotLiked; }
+            else                          { --m_iCounterLikesNotLiked; }
             if( p_cPattern.isHot( ) )     { --m_iCounterLikesHot; }
-            else                        { --m_iCounterLikesNotHot; }
+            else                          { --m_iCounterLikesNotHot; }
             
             //ds and for each tag
             for( CTag cTag: p_cPattern.getTags( ) )
@@ -312,18 +312,25 @@ public final class CLearnerBayes
             --m_iCounterDislikes;
         }
         
-        //ds remove entry from mysql
-        m_cMySQLManager.dropPattern( m_strUsername, p_cPattern );
-        
         //ds remove entry from the map
         m_mapLabels.remove( iPreviousID );
     }
     
     //ds loads the initial dataset
-    public final void fetchInitialDataPool( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException, CZEPEoIException
+    public final void fetchInitialDataPool( ) throws CZEPMySQLManagerException, SQLException, CZEPEoIException
     {       
-        //ds get datapoints from id 1 to selection size+pool size for the initialization
-        m_vecDataPool = _getPatterns( m_iSizeDatapool+m_iSizeSelection );
+        //ds initialize datapool
+        m_vecDataPool = m_cMySQLManager.getDataset( m_iTagCutoffFrequency );
+        
+        //ds check consistency
+        if( m_iNumberOfPatterns != m_vecDataPool.size( ) )
+        {
+            //ds escape
+            throw new CZEPEoIException( "invalid fetching from database - dataset datapool mismatch" );             
+        }        
+        
+        //ds shuffle datapool
+        Collections.shuffle( m_vecDataPool );
         
         //ds initialize both selection pools (since we cannot classify from the beginning)
         m_vecSelectionPool     = new Vector< CPattern >( m_vecDataPool.subList( 0, m_iSizeSelection ) );
@@ -353,13 +360,10 @@ public final class CLearnerBayes
         m_iCounterLikesLiked    = 0; m_iCounterLikesNotLiked    = 0;
         m_iCounterLikesHot      = 0; m_iCounterLikesNotHot      = 0;
         
-        //ds reset indexer
-        m_cIndexer.reset( );
-        
         //ds clear labels
         m_mapLabels.clear( );
         
-        //ds reset datapools
+        //ds reset datapools completely
         fetchInitialDataPool( );
 
         //ds info
@@ -368,8 +372,8 @@ public final class CLearnerBayes
     }
     
     //ds statistic
-    public final int getNumberOfVisits( ){ return 0; }
     public final int getNumberOfLikes( ){ return m_iCounterLikes; }
+    public final int getNumberOfDislikes( ){ return m_iCounterDislikes; }
     public final int getOperations( ){ return m_vecIDsHistory.size( ); }
     public final String getUsername( ){ return m_strUsername; }
     
@@ -409,43 +413,73 @@ public final class CLearnerBayes
     }
     
     //ds evolve the datapool = classification
-    public final void classify( ) throws MalformedURLException, CZEPMySQLManagerException, SQLException, InterruptedException, CZEPEoIException
+    public final void classify( ) throws CZEPEoIException
     {
         //ds classification was requested
         ++m_iCounterClassification;
         
-        //ds check if we just have to add a random sample to the selection pool
+        //ds random elements
+        Vector< CPattern > vecRandomPool = new Vector< CPattern >( m_iNumberOfRandomSamples );
+        
+        //ds check if we have to add a random sample
         if( 0 == m_iCounterClassification%m_iIntervalRandomSample )
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Fetching Random Sample .." );  
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Adding random samples: [" + m_iNumberOfRandomSamples + "]" );  
             
-            //ds update next selection pool with random samples
-            m_vecSelectionPoolNext = _getPatterns( m_iSizeSelection );
+            //ds pick samples
+            for( int i = 0; i < m_iNumberOfRandomSamples; ++i )
+            {
+                //ds get random index
+                final int iIDRandom = new Random( ).nextInt( m_vecDataPool.size( ) );
+                
+                //ds pick a random pattern and add it
+                vecRandomPool.add( m_vecDataPool.get( iIDRandom ).clone( ) );
+                
+                //ds remove it from the pool
+                m_vecDataPool.remove( iIDRandom );
+            }
+        }
+        
+        //ds fancy Bayes operations starting
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Classifying: [" + m_vecDataPool.size( ) + "] patterns" ); 
+            
+        //ds classify the patterns and obtain a sorted representation
+        m_vecDataPool = _classifyPatterns( m_vecDataPool );
+            
+        //ds check if random
+        if( 0 == m_iCounterClassification%m_iIntervalRandomSample )
+        {
+            //ds consistency check
+            if( m_iNumberOfRandomSamples != vecRandomPool.size( ) )
+            {
+                //ds escape
+                throw new CZEPEoIException( "invalid random fetching from datapool - random pool has invalid size" );                
+            }
+            
+            //ds update next selection pool with random pool and classified pool
+            m_vecSelectionPoolNext = new Vector< CPattern >( vecRandomPool );
+            m_vecSelectionPoolNext.addAll( new Vector< CPattern >( m_vecDataPool.subList( 0, m_iSizeSelection-m_iNumberOfRandomSamples ) ) );   
+            
+            //ds remove selection from data pool
+            m_vecDataPool.subList( 0, m_iSizeSelection-m_iNumberOfRandomSamples ).clear( );
+            
+            //ds info - we have to skip the random patterns since those have probability 0
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) maximum probability: [" + m_vecSelectionPoolNext.get( m_iNumberOfRandomSamples ).getLikeliness( ) + "]" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) minimum probability: [" + m_vecSelectionPoolNext.lastElement( ).getLikeliness( ) + "]" );
         }
         else
         {
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Fetching .." ); 
-            
-            //ds fetch new data
-            m_vecDataPool.addAll( _getPatterns( m_iSizeSelection ) );
-            
-            //ds fancy Bayes operations starting
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Classifying .." ); 
-            
-            //ds classify the patterns and obtain a sorted version
-            m_vecDataPool = _classifyPatterns( m_vecDataPool );
-            
-            //ds update next selection pool with the images classified best (starting at the beginning of the datapool)
-            m_vecSelectionPoolNext = new Vector< CPattern >( m_vecDataPool.subList( 0, m_iSizeSelection ) );   
-            
-            //ds remove selection from data pool
+            //ds regular selection and clearance
+            m_vecSelectionPoolNext = new Vector< CPattern >( m_vecDataPool.subList( 0, m_iSizeSelection ) );
             m_vecDataPool.subList( 0, m_iSizeSelection ).clear( );
+            
+            //ds info
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) maximum probability: [" + m_vecSelectionPoolNext.firstElement( ).getLikeliness( ) + "]" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) minimum probability: [" + m_vecSelectionPoolNext.lastElement( ).getLikeliness( ) + "]" );
         }
         
         //ds classification done
         m_bIsClassifying = false;
-        
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Done" ); 
     }
     
     //ds MySQL logger
@@ -470,27 +504,8 @@ public final class CLearnerBayes
         }
     }
     
-    //ds gets a certain number of patterns
-    private final Vector< CPattern > _getPatterns( final int p_iNumberOfPatterns ) throws CZEPEoIException, CZEPMySQLManagerException, SQLException
-    {
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(_getPatterns) received fetch request for patterns: " + p_iNumberOfPatterns );
-        
-        //ds pattern vector
-        Vector< CPattern > vecPatterns = new Vector< CPattern >( p_iNumberOfPatterns );
-        
-        //ds we have to pick the desired number of patterns
-        for( int i = 0; i < p_iNumberOfPatterns; ++i )
-        {
-            //ds fetch the element from MySql
-            vecPatterns.add( m_cMySQLManager.getPatternByID( m_cIndexer.drawID( ), m_iTagCutoffFrequency ) );
-        }
-        
-        //ds return the vector
-        return vecPatterns;
-    }
-    
     //ds classifies the given patterns
-    private final Vector< CPattern > _classifyPatterns( final Vector< CPattern > p_vecPatterns ) throws SQLException
+    private final Vector< CPattern > _classifyPatterns( final Vector< CPattern > p_vecPatterns )
     {
         //ds conditional probabilities
         final double dProbabilityLike              = 0.5 + ( double )( m_iCounterLikes-m_iCounterDislikes )/( 2*m_iNumberOfPatterns );

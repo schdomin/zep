@@ -45,7 +45,32 @@ public final class CPattern
         m_bIsText     = p_bIsText;
         m_bIsLiked    = p_bIsLiked;
         m_bIsHot      = p_bIsHot;
-        m_vecTags     = p_vecTags;
+        m_vecTags     = new Vector< CTag >( p_vecTags );
+    }
+    
+    //ds private constructor for cloning
+    private CPattern( final int p_iID, 
+                      final String p_strTitle,
+                      final boolean p_bIsAnimated,
+                      final boolean p_bIsPhoto,
+                      final boolean p_bIsText,
+                      final boolean p_bIsLiked,
+                      final boolean p_bIsHot,
+                      final Vector< CTag > p_vecTags,
+                      final double p_dLikeliness,
+                      final boolean p_bIsRandom )
+    {
+        //ds set the fields
+        m_iID         = p_iID;
+        m_strTitle    = p_strTitle;
+        m_bIsAnimated = p_bIsAnimated;
+        m_bIsPhoto    = p_bIsPhoto;
+        m_bIsText     = p_bIsText;
+        m_bIsLiked    = p_bIsLiked;
+        m_bIsHot      = p_bIsHot;
+        m_vecTags     = new Vector< CTag >( p_vecTags );
+        m_dLikeliness = p_dLikeliness;
+        m_bIsRandom   = p_bIsRandom; 
     }
     
     //ds copy constructor
@@ -59,7 +84,7 @@ public final class CPattern
         m_bIsText     = p_cDataPoint.m_bIsText;
         m_bIsLiked    = p_cDataPoint.m_bIsLiked;
         m_bIsHot      = p_cDataPoint.m_bIsHot;
-        m_vecTags     = p_cDataPoint.m_vecTags;
+        m_vecTags     = new Vector< CTag >( p_cDataPoint.m_vecTags );
         m_dLikeliness = p_cDataPoint.m_dLikeliness;
         m_bIsRandom   = p_cDataPoint.m_bIsRandom;  
     }
@@ -81,6 +106,12 @@ public final class CPattern
         }
     }
     
+    //ds clone method
+    public CPattern clone( )
+    {
+        return new CPattern( m_iID, m_strTitle, m_bIsAnimated, m_bIsPhoto, m_bIsText, m_bIsLiked, m_bIsHot, new Vector< CTag >( m_vecTags ), m_dLikeliness, m_bIsRandom );
+    }
+    
     //ds getters
     public final int getID( ){ return m_iID; }
     public final String getTitle( ){ return m_strTitle; }
@@ -89,7 +120,8 @@ public final class CPattern
     public final boolean isText( ){ return m_bIsText; }
     public final boolean isLiked( ){ return m_bIsLiked; }
     public final boolean isHot( ){ return m_bIsHot; }
-    public final Vector< CTag > getTags( ){ return m_vecTags; }
+    public final Vector< CTag > getTags( ){ return new Vector< CTag >( m_vecTags ); } //ds no manipulation possible
+    public final Vector< CTag > getTagsModifiable( ){ return m_vecTags; }             //ds open for external manipulation
     
     //ds probability
     public final double getLikeliness( ){ return m_dLikeliness; }

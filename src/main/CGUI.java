@@ -8,6 +8,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.HeadlessException;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -27,15 +28,13 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.border.Border;
 
-import learning.CLearnerBayes;
 //ds custom imports
 //import learning.CLearnerRandom;
+import learning.CLearnerBayes;
 import exceptions.CZEPEoIException;
 import exceptions.CZEPGUIException;
-import exceptions.CZEPLearnerException;
 import exceptions.CZEPMySQLManagerException;
 import exceptions.CZEPnpIException;
-import utility.CDataPoint;
 import utility.CImageHandler;
 import utility.CLogger;
 import utility.CMySQLManager;
@@ -141,8 +140,10 @@ public final class CGUI implements ActionListener, KeyListener
     }
     
     //ds enable display
-    public void launch( ) throws CZEPGUIException, SQLException, CZEPMySQLManagerException
+    public void launch( ) throws CZEPGUIException, HeadlessException, SQLException, CZEPMySQLManagerException
     {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(launch) Loading initial application setup" );
+        
         //ds allocate a dialog object to display independently
         final JDialog cDialogLoading = new JDialog( m_cFrame, "ZEP: Zero-Effort Procrastination", false );
         
@@ -338,14 +339,6 @@ public final class CGUI implements ActionListener, KeyListener
             //ds no previous image available
             JOptionPane.showMessageDialog( m_cFrame, "Could not load image from MySQL database" );                
         }
-        catch( CZEPLearnerException e )
-        {
-            _logMaster( "<CGUI>(actionPerformed) CZEPLearnerException: " + e.getMessage( ) );
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(actionPerformed) CZEPLearnerException: " + e.getMessage( ) );
-            
-            //ds no previous image available
-            JOptionPane.showMessageDialog( m_cFrame, "Internal learning error - please reset" );                
-        }
     }
     
     //ds KeyListener - just map the keys to the buttons
@@ -413,15 +406,15 @@ public final class CGUI implements ActionListener, KeyListener
         //ds update image info
         m_cTextFieldTitle.setText( p_cPattern.getTitle( ) );
         //m_cTextFieldURL.setText( p_cPattern.getURL( ).toString( ) );
-        m_cTextFieldTags.setText( p_cPattern.getTags( ).toString( ) );
+        //m_cTextFieldTags.setText( p_cPattern.getTags( ).toString( ) );
         
         //ds datapoint properties
-        m_cTextFieldImageID.setText( Integer.toString( p_cPattern.getID( ) ) );
+        //m_cTextFieldImageID.setText( Integer.toString( p_cPattern.getID( ) ) );
         //m_cTextFieldType.setText( p_cPattern.getType( ) );
         //m_cTextFieldLikes.setText( Integer.toString( p_cPattern.getLikes( ) ) );
         //m_cTextFieldDislikes.setText( Integer.toString( p_cPattern.getDislikes( ) ) );
         
-        //ds check if gif
+        /*ds check if gif
         if( p_cPattern.isAnimated( ) )
         {
             //ds no detection done
@@ -433,16 +426,15 @@ public final class CGUI implements ActionListener, KeyListener
             //ds get the values
             m_cTextFieldTextPercent.setText( Boolean.toString( p_cPattern.isAnimated( ) ) );
             m_cTextFieldIsPhoto.setText( Boolean.toString( p_cPattern.isPhoto( ) ) );            
-        }
-        
+        }*/
         
         //m_cTextFieldComments.setText( Integer.toString( p_cPattern.getCountComments( ) ) );
         //m_cTextFieldTagsCount.setText( Integer.toString( p_cPattern.getCountTags( ) ) );
         
         //ds learner
-        m_cTextFieldVisits.setText( Integer.toString( m_cLearner.getNumberOfVisits( ) ) );
-        m_cTextFieldDatasetSize.setText( Integer.toString( m_cLearner.getOperations( ) ) );
-        m_cTextFieldTotalLikes.setText( Integer.toString( m_cLearner.getNumberOfLikes( ) ) );
+        //m_cTextFieldVisits.setText( Integer.toString( m_cLearner.getNumberOfVisits( ) ) );
+        //m_cTextFieldDatasetSize.setText( Integer.toString( m_cLearner.getOperations( ) ) );
+        //m_cTextFieldTotalLikes.setText( Integer.toString( m_cLearner.getNumberOfLikes( ) ) );
     }
     
     //ds component setup

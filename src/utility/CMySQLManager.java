@@ -109,7 +109,7 @@ public final class CMySQLManager
         }
         try
         {
-            //ds compute probabilities
+            //ds compute probability table
             cMySQLManager.computeProbabilities( iTagCutoffFrequency );
         }
         catch( Exception e )
@@ -420,7 +420,7 @@ public final class CMySQLManager
         return vecPatterns;
     }*/
     
-    //ds fetches a single pattern
+    /*ds fetches a single pattern
     public final CPattern getPatternByID( final int p_iID, final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
     {
         //ds table
@@ -444,7 +444,7 @@ public final class CMySQLManager
         {
             throw new CZEPMySQLManagerException( "could not load pattern from MySQL database - ID: " + p_iID );
         }
-    }
+    }*/
     
     //ds regular image access
     public final BufferedImage getBufferedImage( final CPattern p_cPattern ) throws CZEPMySQLManagerException
@@ -552,47 +552,79 @@ public final class CMySQLManager
         }        
     }
     
-    /*ds access function: multiple datapoints
-    public final Map< Integer, CDataPoint > getDataset( final int p_iMaximumNumberOfDataPoints ) throws SQLException, MalformedURLException
+    //ds access function for all patterns
+    public final Vector< CPattern > getDataset( final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
     {
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) received fetch request - start downloading .." );
+        //ds number of patterns to fetch
+        final int iTotalNumberOfPatterns = getNumberOfPatterns( p_iTagCutoffFrequency );
         
-        //ds informative counter
-        int iNumberOfDataPoints = 0;
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) received fetch request for [" + iTotalNumberOfPatterns + "] patterns" );
         
-        //ds allocate a fresh map
-        final Map< Integer, CDataPoint > mapDataset = new HashMap< Integer, CDataPoint >( );
+        //ds allocate a fresh vector
+        final Vector< CPattern > vecDataset = new Vector< CPattern >( iTotalNumberOfPatterns );
         
-        //ds query for the first id
-        final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= 1" );
+        //ds query for the first pattern - implicit inner join
+        final PreparedStatement cRetrievePatternAndTags = m_cMySQLConnection.prepareStatement
+                                                         ( "SELECT * FROM cutoff_10_patterns JOIN mappings ON cutoff_10_patterns.id_datapoint = mappings.id_datapoint " +
+                		                                                                    "JOIN cutoff_10_tags ON cutoff_10_tags.id_tag = mappings.id_tag" );
         
         //ds get the result
-        final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
+        final ResultSet cResultSetPattern = cRetrievePatternAndTags.executeQuery( );
+
+        //ds previous pattern reference
+        CPattern cPreviousPattern = null;
+        
+        //ds first pattern is done ahead to avoid more loop parameters and if clauses
+        if( cResultSetPattern.next( ) )
+        {
+            //ds new pattern
+            cPreviousPattern = new CPattern( cResultSetPattern.getInt( "id_datapoint" ),
+                                             cResultSetPattern.getString( "title"),
+                                             cResultSetPattern.getBoolean( "animated" ),
+                                             cResultSetPattern.getBoolean( "photo" ),
+                                             cResultSetPattern.getBoolean( "text" ),
+                                             cResultSetPattern.getBoolean( "liked" ),
+                                             cResultSetPattern.getBoolean( "hot" ),
+                                             new Vector< CTag >( 0 ) );            
+        }
         
         //ds as long as we have remaining data
-        while( cResultSetDataPoint.next( ) && iNumberOfDataPoints < p_iMaximumNumberOfDataPoints )
+        while( cResultSetPattern.next( ) )
         {
-            //ds get the datapoint
-            final CDataPoint cDataPoint = _getDataPointFromResultSet( cResultSetDataPoint );
-            
-            //ds add the datapoint to the map
-            mapDataset.put( cDataPoint.getID( ), cDataPoint );
-            
-            //ds update
-            ++iNumberOfDataPoints;
-            
-            //ds log for every 100 imports
-            if( 0 == iNumberOfDataPoints%100 )
+            //ds check if pattern id matches previous (we only have to add tags)
+            if( cPreviousPattern.getID( ) == cResultSetPattern.getInt( "id_datapoint" ) )
             {
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) fetched: " + iNumberOfDataPoints + " DataPoints and continuing .." );
+                //ds add current tag
+                cPreviousPattern.getTagsModifiable( ).add( new CTag( cResultSetPattern.getInt( "id_tag" ), cResultSetPattern.getString( "value" ), cResultSetPattern.getInt( "frequency" ) ) );
+            }
+            else
+            {
+                //ds save the previous pattern (tag collection complete)
+                vecDataset.add( cPreviousPattern );
+                
+                //ds new pattern
+                cPreviousPattern = new CPattern( cResultSetPattern.getInt( "id_datapoint" ),
+                                                 cResultSetPattern.getString( "title"),
+                                                 cResultSetPattern.getBoolean( "animated" ),
+                                                 cResultSetPattern.getBoolean( "photo" ),
+                                                 cResultSetPattern.getBoolean( "text" ),
+                                                 cResultSetPattern.getBoolean( "liked" ),
+                                                 cResultSetPattern.getBoolean( "hot" ),
+                                                 new Vector< CTag >( 0 ) );
+                
+                //ds add current tag
+                cPreviousPattern.getTagsModifiable( ).add( new CTag( cResultSetPattern.getInt( "id_tag" ), cResultSetPattern.getString( "value" ), cResultSetPattern.getInt( "frequency" ) ) );                
             }
         }
         
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) fetching complete" );
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) added : " + iNumberOfDataPoints + " DataPoints" );
+        //ds dont forget to add the last pattern
+        vecDataset.add( cPreviousPattern );
         
-        return mapDataset;
-    }*/
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) fetching complete" );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) added [" + vecDataset.size( ) + "/" + iTotalNumberOfPatterns + "] Patterns" );
+        
+        return vecDataset;
+    }
     
     //ds getter for the probability map
     public final Map< Integer, Double > getProbabilityMap( final int p_iTagCutoffFrequency ) throws CZEPMySQLManagerException, SQLException
@@ -912,7 +944,7 @@ public final class CMySQLManager
     }
     
     //ds log to learner database
-    public final void logPattern( final String p_strUsername, final CPattern p_cPattern, final boolean p_bIsLiked ) throws SQLException
+    public final void logAddPattern( final String p_strUsername, final CPattern p_cPattern, final boolean p_bIsLiked ) throws SQLException
     {
         //ds simple insertion
         final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_learner` ( `username`, `id_datapoint`, `random`, `liked`, `probability` ) VALUE ( ?, ?, ?, ?, ? )" );
@@ -926,14 +958,15 @@ public final class CMySQLManager
     }
     
     //ds log to learner database
-    public final void dropPattern( final String p_strUsername, final CPattern p_cPattern ) throws SQLException
+    public final void logUpdatePattern( final String p_strUsername, final CPattern p_cPattern, final boolean p_bIsLiked ) throws SQLException
     {
-        //ds simple deletion
-        final PreparedStatement cStatementRemovePattern = m_cMySQLConnection.prepareStatement( "DELETE FROM `log_learner` WHERE ( `username` ) = ( ? ) AND ( `id_datapoint` ) = ( ? )" );
-        cStatementRemovePattern.setString( 1, p_strUsername );
-        cStatementRemovePattern.setInt( 2, p_cPattern.getID( ) );
-        cStatementRemovePattern.setQueryTimeout( m_iMySQLTimeoutMS );
-        cStatementRemovePattern.execute( );
+        //ds simple update
+        final PreparedStatement cStatementUpdatePattern = m_cMySQLConnection.prepareStatement( "UPDATE `log_learner` SET `liked` = ( ? ) WHERE `username` = ( ? ) AND `id_datapoint` = ( ? )" );
+        cStatementUpdatePattern.setBoolean( 1, p_bIsLiked );
+        cStatementUpdatePattern.setString( 2, p_strUsername );
+        cStatementUpdatePattern.setInt( 3, p_cPattern.getID( ) );
+        cStatementUpdatePattern.setQueryTimeout( m_iMySQLTimeoutMS );
+        cStatementUpdatePattern.execute( );
     }
     
     //ds set active user
@@ -1363,7 +1396,7 @@ public final class CMySQLManager
         return new CDataPoint( iID_DataPoint, new URL( strURL ), strTitle, strType, iLikes, iDislikes, iCountComments, iCountTags, bIsPhoto, dTextAmount, vecTags );
     }
     
-    //ds helper for pattern retrieval
+    /*ds helper for pattern retrieval
     private final CPattern _getPatternFromResultSet( final ResultSet p_cResultSetDataPoint, final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
     {
         //ds get the ID
@@ -1420,5 +1453,5 @@ public final class CMySQLManager
         
         //ds return the datapoint
         return new CPattern( iID_DataPoint, strTitle, bIsAnimated, bIsPhoto, bIsText, bIsLiked, bIsHot, vecTags );
-    }
+    }*/
 }

@@ -1,6 +1,5 @@
 package main;
 
-import java.net.MalformedURLException;
 import java.sql.SQLException;
 
 //ds custom imports
@@ -22,10 +21,9 @@ public abstract class CMain
     private static int m_iWindowHeight        = 800;
     
     //ds default configuration parameters: mysql
-    //private static String m_strMySQLDriver    = "com.mysql.jdbc.Driver";
     private static String m_strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
     private static String m_strMySQLUsername  = "domis";
-    private static String m_strMySQLPassword  = "N0effort";
+    private static String m_strMySQLPassword  = "N0passw0rd";
     
     //ds MAIN
     public static void main( String[] args )
@@ -39,12 +37,11 @@ public abstract class CMain
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "|                                         CONFIGURATION                                         |" );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
-        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowWidth=" + m_iWindowWidth );
-        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowHeight=" + m_iWindowHeight );
-        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLUsername=" + m_strMySQLUsername );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowWidth=" + m_iWindowWidth );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_iWindowHeight=" + m_iWindowHeight );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLUsername=" + m_strMySQLUsername );
         //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLPassword=" + m_strMySQLPassword );
-        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLDriver=" + m_strMySQLDriver );
-        //System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLServerURL=" + m_strMySQLServerURL );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) m_strMySQLServerURL=" + m_strMySQLServerURL );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
         System.out.println( "|                                          LAUNCH PHASE                                         |" );
         System.out.println( "-------------------------------------------------------------------------------------------------" );
@@ -88,18 +85,21 @@ public abstract class CMain
 	    {
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) SQLException: " + e.getMessage( ) + " - could not connect to MySQL database" );
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+	        System.exit( 0 );
 	        return;      
 	    }
 	    catch( CZEPMySQLManagerException e )
 	    {
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " - could not launch learner" );
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+	        System.exit( 0 );
 	        return;      
 	    }
 	    catch( CZEPEoIException e )
 	    {
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPEoIException: " + e.getMessage( ) + " - no images in database" );
 	        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
+	        System.exit( 0 );
 	        return;      
 	    }
         
@@ -162,45 +162,12 @@ public abstract class CMain
                 //ds not fatal
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) InterruptedException: " + e.getMessage( ) );
             }
-            catch( MalformedURLException e )
-            {
-                _logMaster( cLearner, cMySQLManager, "<CMain>(main) MalformedURLException: " + e.getMessage( ) + " could not classify" );
-                
-                //ds fatal
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) MalformedURLException: " + e.getMessage( ) + " could not classify" );
-                cGUI.close( );
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
-                System.exit( 0 );
-                return; 
-            }
-            catch( SQLException e )
-            {
-                _logMaster( cLearner, cMySQLManager, "<CMain>(main) SQLException: " + e.getMessage( ) + " could not classify" );
-                
-                //ds fatal
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) SQLException: " + e.getMessage( ) + " could not classify" );
-                cGUI.close( );
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
-                System.exit( 0 );
-                return; 
-            }
-            catch( CZEPMySQLManagerException e )
-            {
-                _logMaster( cLearner, cMySQLManager, "<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " could not classify" );
-                
-                //ds fatal
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPMySQLManagerException: " + e.getMessage( ) + " could not classify" );
-                cGUI.close( );
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
-                System.exit( 0 );
-                return; 
-            }
             catch( CZEPEoIException e )
             {
-                _logMaster( cLearner, cMySQLManager, "<CMain>(main) CZEPEoIException: " + e.getMessage( ) + " could not classify" );
+                _logMaster( cLearner, cMySQLManager, "<CMain>(main) CZEPEoIException: " + e.getMessage( ) );
                 
                 //ds fatal
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPEoIException: " + e.getMessage( ) + " could not classify" );
+                System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) CZEPEoIException: " + e.getMessage( ) );
                 cGUI.close( );
                 System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) aborted" );
                 System.exit( 0 );
