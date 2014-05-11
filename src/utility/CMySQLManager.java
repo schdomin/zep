@@ -579,8 +579,8 @@ public final class CMySQLManager
         
         //ds query for the first pattern - implicit inner join
         final PreparedStatement cRetrievePatternAndTags = m_cMySQLConnection.prepareStatement
-                                                         ( "SELECT * FROM cutoff_10_patterns JOIN mappings ON cutoff_10_patterns.id_datapoint = mappings.id_datapoint " +
-                		                                                                    "JOIN cutoff_10_tags ON cutoff_10_tags.id_tag = mappings.id_tag" );
+                                                         ( "SELECT * FROM `cutoff_10_patterns` JOIN mappings ON `cutoff_10_patterns`.`id_datapoint` = `mappings`.`id_datapoint` " +
+                		                                                                      "JOIN `cutoff_10_tags` ON `cutoff_10_tags`.`id_tag` = `mappings`.`id_tag`" );
         
         //ds get the result
         final ResultSet cResultSetPattern = cRetrievePatternAndTags.executeQuery( );
