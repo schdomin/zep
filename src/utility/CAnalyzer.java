@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
 
+import exceptions.CZEPConfigurationException;
 import exceptions.CZEPMySQLManagerException;
 
 public abstract class CAnalyzer
@@ -18,10 +19,24 @@ public abstract class CAnalyzer
     //ds standalone
     public static void main( String[] args )
     {
-        //ds default configuration parameters: mysql
-        final String strMySQLServerURL = "jdbc:mysql://pc-10129.ethz.ch:3306/domis";
-        final String strMySQLUsername  = "domis";
-        final String strMySQLPassword  = "N0effort";
+      //ds default configuration parameters: mysql
+        String strMySQLServerURL = "";
+        String strMySQLUsername  = "";
+        String strMySQLPassword  = "";
+        
+        try
+        {
+            //ds MySQL
+            strMySQLServerURL = CImporter.getAttribute( "config.txt", "m_strMySQLServerURL" );
+            strMySQLUsername  = CImporter.getAttribute( "config.txt", "m_strMySQLUsername" );
+            strMySQLPassword  = CImporter.getAttribute( "config.txt", "m_strMySQLPassword" );
+        }
+        catch( CZEPConfigurationException e )
+        {
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) CZEPConfigurationException: " + e.getMessage( ) + " - error during config file parsing" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(main) aborted" );
+            return;            
+        }
         
         //ds allocate a MySQL manager instance
         m_cMySQLManager = new CMySQLManager( strMySQLServerURL, strMySQLUsername, strMySQLPassword );
@@ -53,9 +68,9 @@ public abstract class CAnalyzer
         try
         {
             //ds log cutoffs
-            //logCutoffs( "cutoffs.csv" );
+            logCutoffs( "cutoffs.csv" );
             
-            //ds user names to log
+            /*ds user names to log
             Vector< String > vecUsernames = new Vector< String >( 8 );
             vecUsernames.add( "Isabellinska" );
             vecUsernames.add( "judas" );
@@ -67,7 +82,7 @@ public abstract class CAnalyzer
             vecUsernames.add( "Glaus" );
             
             //ds create the csvs for the users
-            logFromLearner( vecUsernames );
+            logFromLearner( vecUsernames );*/
         }
         catch( Exception e )
         {

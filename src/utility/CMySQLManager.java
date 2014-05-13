@@ -69,7 +69,7 @@ public final class CMySQLManager
         String strMySQLServerURL = "";
         String strMySQLUsername  = "";
         String strMySQLPassword  = "";
-        final int iTagCutoffFrequency  = 10;
+        final int iTagCutoffFrequency = 104;
         
         try
         {
@@ -115,7 +115,7 @@ public final class CMySQLManager
         try
         {
             //ds create feature table
-            cMySQLManager.createPatternsAndTagsTable( iTagCutoffFrequency, 1 );
+            cMySQLManager.createPatternsAndTagsTable( iTagCutoffFrequency );
         }
         catch( Exception e )
         {
@@ -572,6 +572,11 @@ public final class CMySQLManager
         //ds number of patterns to fetch
         final int iTotalNumberOfPatterns = getNumberOfPatterns( p_iTagCutoffFrequency );
         
+        //ds tables
+        final String strTagCutoff     = Integer.toString( p_iTagCutoffFrequency );
+        final String strTablePatterns = "cutoff_" + strTagCutoff + "_patterns";
+        final String strTableTags     = "cutoff_" + strTagCutoff + "_tags";
+        
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getDataset) received fetch request for [" + iTotalNumberOfPatterns + "] patterns" );
         
         //ds allocate a fresh vector
@@ -579,8 +584,8 @@ public final class CMySQLManager
         
         //ds query for the first pattern - implicit inner join
         final PreparedStatement cRetrievePatternAndTags = m_cMySQLConnection.prepareStatement
-                                                         ( "SELECT * FROM `cutoff_10_patterns` JOIN mappings ON `cutoff_10_patterns`.`id_datapoint` = `mappings`.`id_datapoint` " +
-                		                                                                      "JOIN `cutoff_10_tags` ON `cutoff_10_tags`.`id_tag` = `mappings`.`id_tag`" );
+                                                         ( "SELECT * FROM " + strTablePatterns + " JOIN mappings ON " + strTablePatterns + ".`id_datapoint` = `mappings`.`id_datapoint` " +
+                		                                                                          "JOIN " + strTableTags + " ON " + strTableTags + ".`id_tag` = `mappings`.`id_tag`" );
         
         //ds get the result
         final ResultSet cResultSetPattern = cRetrievePatternAndTags.executeQuery( );
@@ -592,14 +597,10 @@ public final class CMySQLManager
         if( cResultSetPattern.next( ) )
         {
             //ds new pattern
-            cPreviousPattern = new CPattern( cResultSetPattern.getInt( "id_datapoint" ),
-                                             cResultSetPattern.getString( "title"),
-                                             cResultSetPattern.getBoolean( "animated" ),
-                                             cResultSetPattern.getBoolean( "photo" ),
-                                             cResultSetPattern.getBoolean( "text" ),
-                                             cResultSetPattern.getBoolean( "liked" ),
-                                             cResultSetPattern.getBoolean( "hot" ),
-                                             new Vector< CTag >( 0 ) );            
+            cPreviousPattern = _getPatternFromResultSet( cResultSetPattern );
+            
+            //ds add current tag
+            cPreviousPattern.getTagsModifiable( ).add( new CTag( cResultSetPattern.getInt( "id_tag" ), cResultSetPattern.getString( "value" ), cResultSetPattern.getInt( "frequency" ) ) );
         }
         
         //ds as long as we have remaining data
@@ -617,14 +618,7 @@ public final class CMySQLManager
                 vecDataset.add( cPreviousPattern );
                 
                 //ds new pattern
-                cPreviousPattern = new CPattern( cResultSetPattern.getInt( "id_datapoint" ),
-                                                 cResultSetPattern.getString( "title"),
-                                                 cResultSetPattern.getBoolean( "animated" ),
-                                                 cResultSetPattern.getBoolean( "photo" ),
-                                                 cResultSetPattern.getBoolean( "text" ),
-                                                 cResultSetPattern.getBoolean( "liked" ),
-                                                 cResultSetPattern.getBoolean( "hot" ),
-                                                 new Vector< CTag >( 0 ) );
+                cPreviousPattern = _getPatternFromResultSet( cResultSetPattern );
                 
                 //ds add current tag
                 cPreviousPattern.getTagsModifiable( ).add( new CTag( cResultSetPattern.getInt( "id_tag" ), cResultSetPattern.getString( "value" ), cResultSetPattern.getInt( "frequency" ) ) );                
@@ -702,98 +696,138 @@ public final class CMySQLManager
     }
     
     //ds create feature table
-    public final void createPatternsAndTagsTable( final int p_iTagCutoffFrequency, final int p_iID_DataPointStart ) throws SQLException, IOException
+    public final void createPatternsAndTagsTable( final int p_iTagCutoffFrequency ) throws SQLException, IOException
     {
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) creating the final feature table starting at ID: " + p_iID_DataPointStart );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) creating the final feature table for cutoff frequency: " +  p_iTagCutoffFrequency );
         
         //ds table names
         final String strTagCutoff     = Integer.toString( p_iTagCutoffFrequency );
         final String strTablePatterns = "cutoff_" + strTagCutoff + "_patterns";
         final String strTableTags     = "cutoff_" + Integer.toString( p_iTagCutoffFrequency ) + "_tags";
         
-        //ds query for the first id - select all datapoints
-        final PreparedStatement cRetrieveDataPoint = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints` WHERE `id_datapoint` >= ( ? )" );
-        cRetrieveDataPoint.setInt( 1, p_iID_DataPointStart );
-        cRetrieveDataPoint.setQueryTimeout( m_iMySQLTimeoutMS );
+      //ds query for the first datapoint - implicit inner join
+        final PreparedStatement cRetrieveDataPointsAndTags = m_cMySQLConnection.prepareStatement
+                                                         ( "SELECT * FROM `datapoints` JOIN mappings ON `datapoints`.`id_datapoint` = `mappings`.`id_datapoint` " +
+                                                                                      "JOIN `tags` ON `tags`.`id_tag` = `mappings`.`id_tag`" );
         
         //ds get the result
-        final ResultSet cResultSetDataPoint = cRetrieveDataPoint.executeQuery( );
+        final ResultSet cResultSetDataPoint = cRetrieveDataPointsAndTags.executeQuery( );
+
+        //ds previous datapoint reference
+        CDataPoint cPreviousDataPoint = null;
         
         //ds discard counter
         int iNumberOfDiscardedPoints = 0;
         
+        //ds first datapoint is done ahead to avoid more loop parameters and if clauses
+        if( cResultSetDataPoint.next( ) )
+        {
+            //ds new datapoint (without tags)
+            cPreviousDataPoint = _getDataPointFromResultSet( cResultSetDataPoint );
+            
+            //ds add current tag
+            cPreviousDataPoint.getTagsModifiable( ).add( new CTag( cResultSetDataPoint.getInt( "id_tag" ), cResultSetDataPoint.getString( "value" ), cResultSetDataPoint.getInt( "frequency" ) ) );
+        }
+        
         //ds as long as we have remaining data
         while( cResultSetDataPoint.next( ) )
-        {        
-            //ds get the datapoint
-            final CDataPoint cDataPoint = _getDataPointFromResultSet( cResultSetDataPoint );
-            
-            //ds escape for gifs TODO GIFS
-            if( cDataPoint.getType( ).equals( "gif" ) )
+        {
+            //ds check if pattern id matches previous (we only have to add tags)
+            if( cPreviousDataPoint.getID( ) == cResultSetDataPoint.getInt( "id_datapoint" ) )
             {
-                //ds count
-                ++iNumberOfDiscardedPoints;
-                
-                //ds check next datapoint
-                continue;                
+                //ds add current tag
+                cPreviousDataPoint.getTagsModifiable( ).add( new CTag( cResultSetDataPoint.getInt( "id_tag" ), cResultSetDataPoint.getString( "value" ), cResultSetDataPoint.getInt( "frequency" ) ) );
             }
-            
-            //ds minimum 1 tag has to reach cutoff frequency
-            boolean bIsFrequencyAboveCutoff = false;
-            
-            //ds we now have to check the tag frequencies
-            for( CTag cTag: cDataPoint.getTags( ) )
+            else
             {
-                //ds if the frequency is above the threshold
-                if( p_iTagCutoffFrequency < cTag.getFrequency( ) )
+                //ds no analyzation for gifs TODO GIFS
+                if( cPreviousDataPoint.getType( ).equals( "gif" ) )
                 {
-                    //ds done we can use this datapoint
-                    bIsFrequencyAboveCutoff = true;
-                    
-                    //ds insert tag in tags table for the current cutoff
-                    _insertTag( cTag, strTableTags );
+                    ++iNumberOfDiscardedPoints;
                 }
-            }
-            
-            //ds check if there was no tag with minimum frequency fullfiled
-            if( !bIsFrequencyAboveCutoff )
-            {
-                //ds count
-                ++iNumberOfDiscardedPoints;
+                else
+                {
+                    //ds check the previous datapoint (tag collection complete) - minimum 1 tag has to reach cutoff frequency
+                    boolean bIsFrequencyAboveCutoff = false;
+                    
+                    //ds we now have to check the tag frequencies
+                    for( CTag cTag: cPreviousDataPoint.getTags( ) )
+                    {
+                        //ds if the frequency is above the threshold
+                        if( p_iTagCutoffFrequency <= cTag.getFrequency( ) )
+                        {
+                            //ds done we can use this datapoint
+                            bIsFrequencyAboveCutoff = true;
+                            
+                            //ds insert tag in tags table for the current cutoff
+                            _insertTag( cTag, strTableTags );
+                        }
+                    }
+                    
+                    //ds check if we inserted any tags -> we can use the datapoint
+                    if( bIsFrequencyAboveCutoff )
+                    {
+                        //ds determine feature values
+                        final int iID_DataPoint   = cPreviousDataPoint.getID( );
+                        final boolean bIsAnimated = cPreviousDataPoint.getType( ).equals( "gif" );
+                        final boolean bIsPhoto    = cPreviousDataPoint.isPhoto( );
+                        final boolean isText      = cPreviousDataPoint.getTextAmount( ) > m_dMinimumText;
+                        final boolean isLiked     = ( double )( cPreviousDataPoint.getLikes( ) )/( cPreviousDataPoint.getDislikes( )+1  ) > m_dMinimumLikeDislikeRatio;
+                        final boolean isHot       = ( double )( cPreviousDataPoint.getLikes( )+cPreviousDataPoint.getDislikes( ) )/( cPreviousDataPoint.getCountComments( )+1 ) < m_dMaximumVotesCommentsRatio;
+                        
+                        //ds insert into pattern table
+                        _insertPattern( new CPattern( iID_DataPoint, cPreviousDataPoint.getTitle( ), bIsAnimated, bIsPhoto, isText, isLiked, isHot, cPreviousDataPoint.getTags( ) ), strTablePatterns );
+                    }
+                    else
+                    {
+                        ++iNumberOfDiscardedPoints;
+                    }
+                }
                 
-                //ds check next datapoint
-                continue;
+                //ds new datapoint
+                cPreviousDataPoint = _getDataPointFromResultSet( cResultSetDataPoint );
+                
+                //ds add current tag
+                cPreviousDataPoint.getTagsModifiable( ).add( new CTag( cResultSetDataPoint.getInt( "id_tag" ), cResultSetDataPoint.getString( "value" ), cResultSetDataPoint.getInt( "frequency" ) ) );                
             }
+        }
+        
+        //ds check the previous datapoint (tag collection complete) - minimum 1 tag has to reach cutoff frequency
+        boolean bIsFrequencyAboveCutoff = false;
+        
+        //ds we now have to check the tag frequencies
+        for( CTag cTag: cPreviousDataPoint.getTags( ) )
+        {
+            //ds if the frequency is above the threshold
+            if( p_iTagCutoffFrequency <= cTag.getFrequency( ) )
+            {
+                //ds done we can use this datapoint
+                bIsFrequencyAboveCutoff = true;
+                
+                //ds insert tag in tags table for the current cutoff
+                _insertTag( cTag, strTableTags );
+            }
+        }
+        
+        //ds check if we inserted any tags -> we can use the datapoint
+        if( bIsFrequencyAboveCutoff )
+        {
+            //ds determine feature values
+            final int iID_DataPoint   = cPreviousDataPoint.getID( );
+            final boolean bIsAnimated = cPreviousDataPoint.getType( ).equals( "gif" );
+            final boolean bIsPhoto    = cPreviousDataPoint.isPhoto( );
+            final boolean isText      = cPreviousDataPoint.getTextAmount( ) > m_dMinimumText;
+            final boolean isLiked     = ( double )( cPreviousDataPoint.getLikes( ) )/( cPreviousDataPoint.getDislikes( )+1  ) > m_dMinimumLikeDislikeRatio;
+            final boolean isHot       = ( double )( cPreviousDataPoint.getLikes( )+cPreviousDataPoint.getDislikes( ) )/( cPreviousDataPoint.getCountComments( )+1 ) < m_dMaximumVotesCommentsRatio;
             
-            //ds get insertion query for the feature table
-            final PreparedStatement cStatementInsertFeaturePoint = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + strTablePatterns + "` ( `id_datapoint`, `title`, `animated`, `photo`, `text`, `liked`, `hot` ) VALUE ( ?, ?, ?, ?, ?, ?, ? )" );
-            
-            //ds determine values
-            final int iID_DataPoint   = cDataPoint.getID( );
-            final boolean bIsAnimated = cDataPoint.getType( ).equals( "gif" );
-            final boolean bIsPhoto    = cDataPoint.isPhoto( );
-            final boolean isText      = cDataPoint.getTextAmount( ) > m_dMinimumText;
-            final boolean isLiked     = ( double )( cDataPoint.getLikes( ) )/( cDataPoint.getDislikes( )+1  ) > m_dMinimumLikeDislikeRatio;
-            final boolean isHot       = ( double )( cDataPoint.getLikes( )+cDataPoint.getDislikes( ) )/( cDataPoint.getCountComments( )+1 ) < m_dMaximumVotesCommentsRatio;
-            
-            //ds set params
-            cStatementInsertFeaturePoint.setInt( 1, iID_DataPoint );  
-            cStatementInsertFeaturePoint.setString( 2, cDataPoint.getTitle( ) );  
-            cStatementInsertFeaturePoint.setBoolean( 3, bIsAnimated );
-            cStatementInsertFeaturePoint.setBoolean( 4, bIsPhoto );
-            cStatementInsertFeaturePoint.setBoolean( 5, isText );
-            cStatementInsertFeaturePoint.setBoolean( 6, isLiked );
-            cStatementInsertFeaturePoint.setBoolean( 7, isHot );
-            cStatementInsertFeaturePoint.setQueryTimeout( m_iMySQLTimeoutMS );
-
-            //ds execute
-            cStatementInsertFeaturePoint.execute( );
+            //ds insert into pattern table
+            _insertPattern( new CPattern( iID_DataPoint, cPreviousDataPoint.getTitle( ), bIsAnimated, bIsPhoto, isText, isLiked, isHot, cPreviousDataPoint.getTags( ) ), strTablePatterns );
         }
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(createFeatureTable) feature table creation successful - discarded datapoints: " + iNumberOfDiscardedPoints );
     }
     
-    //ds create tags table
+    /*ds create tags table
     public final void createTagsTable( final int p_iTagCutoffFrequency ) throws SQLException, IOException
     {
         System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(computeProbabilities) creating tags table for cutoff frequency: " +  p_iTagCutoffFrequency );
@@ -822,7 +856,7 @@ public final class CMySQLManager
             //ds commit
             cStatementInsertTag.execute( );
         }
-    }
+    }*/
     
     //ds compute probabilities
     public final void computeProbabilities( final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
@@ -1104,57 +1138,118 @@ public final class CMySQLManager
     //ds counts datapoints per current cutoff (SLOW)
     public final Map< Integer, Integer > getNumberOfDataPointsForCutoffs( final Vector< Integer > p_vecTagCutoffFrequencies ) throws SQLException, MalformedURLException
     {
-        //ds query on the datapoint table
-        final PreparedStatement cRetrieveDataPoints = m_cMySQLConnection.prepareStatement( "SELECT * FROM `datapoints`" );
-        cRetrieveDataPoints.setQueryTimeout( m_iMySQLTimeoutMS ); 
-        
-        //ds get the result
-        final ResultSet cResultSetDataPoint = cRetrieveDataPoints.executeQuery( );
-        
         //ds result map with datapoint entries per cutoff
         Map< Integer, Integer > mapDataPointsCutoff = new HashMap< Integer, Integer >( p_vecTagCutoffFrequencies.size( ) );
         
-        //ds datapoints processed counter
-        int iCounterDataPoints = 0;
+        //ds query for the first datapoint - implicit inner join
+        final PreparedStatement cRetrieveDataPointsAndTags = m_cMySQLConnection.prepareStatement
+                                                         ( "SELECT * FROM `datapoints` JOIN mappings ON `datapoints`.`id_datapoint` = `mappings`.`id_datapoint` " +
+                                                                                      "JOIN `tags` ON `tags`.`id_tag` = `mappings`.`id_tag`" );
         
-        //ds check the current datapoint and so on
+        //ds get the result
+        final ResultSet cResultSetDataPoint = cRetrieveDataPointsAndTags.executeQuery( );
+
+        //ds previous datapoint reference
+        CDataPoint cPreviousDataPoint = null;
+        
+        //ds first datapoint is done ahead to avoid more loop parameters and if clauses
+        if( cResultSetDataPoint.next( ) )
+        {
+            //ds new datapoint (without tags)
+            cPreviousDataPoint = new CDataPoint( cResultSetDataPoint.getInt( "id_datapoint" ),
+                                                 cResultSetDataPoint.getURL( "url" ),
+                                                 cResultSetDataPoint.getString( "title" ),
+                                                 cResultSetDataPoint.getString( "type" ),
+                                                 cResultSetDataPoint.getInt( "likes" ),
+                                                 cResultSetDataPoint.getInt( "dislikes" ),
+                                                 cResultSetDataPoint.getInt( "count_comments" ),
+                                                 cResultSetDataPoint.getInt( "count_tags" ),
+                                                 cResultSetDataPoint.getBoolean( "is_photo" ),
+                                                 cResultSetDataPoint.getDouble( "text_amount" ),
+                                                 new Vector< CTag >( 0 ) );
+            
+            //ds add current tag
+            cPreviousDataPoint.getTagsModifiable( ).add( new CTag( cResultSetDataPoint.getInt( "id_tag" ), cResultSetDataPoint.getString( "value" ), cResultSetDataPoint.getInt( "frequency" ) ) );
+        }
+        
+        //ds as long as we have remaining data
         while( cResultSetDataPoint.next( ) )
         {
-            //ds get the datapoint
-            final CDataPoint cDataPoint = _getDataPointFromResultSet( cResultSetDataPoint );
-            
-            //ds get maximum frequency
-            final int iMaximumFrequency = CTag.getMaximumFrequency( cDataPoint.getTags( ) );
-            
-            //ds check over all frequencies (starting at maximum frequency)
-            for( int iFrequency: p_vecTagCutoffFrequencies )
+            //ds check if pattern id matches previous (we only have to add tags)
+            if( cPreviousDataPoint.getID( ) == cResultSetDataPoint.getInt( "id_datapoint" ) )
             {
-                //ds if we fit in
-                if( iFrequency <= iMaximumFrequency )
-                {
-                    //ds add the datapoint - if exists
-                    if( mapDataPointsCutoff.containsKey( iFrequency ) )
-                    {
-                        //ds increase
-                        mapDataPointsCutoff.put( iFrequency, mapDataPointsCutoff.get( iFrequency )+1 );
-                    }
-                    else
-                    {
-                        //ds first datapoint for this frequency
-                        mapDataPointsCutoff.put( iFrequency, 1 );
-                    }
-                    
-                    //ds done for this datapoint
-                    break;
-                }
+                //ds add current tag
+                cPreviousDataPoint.getTagsModifiable( ).add( new CTag( cResultSetDataPoint.getInt( "id_tag" ), cResultSetDataPoint.getString( "value" ), cResultSetDataPoint.getInt( "frequency" ) ) );
             }
-            
-            ++iCounterDataPoints;
-            
-            //ds info
-            if( 0 == iCounterDataPoints%100 )
+            else
             {
-                System.out.println( "[" + CLogger.getStamp( ) + "]<CMySQLManager>(getNumberOfDataPointsForCutoff) processed datapoints: " + iCounterDataPoints );
+                //ds check the previous datapoint (tag collection complete) - get maximum frequency
+                final int iMaximumFrequency = CTag.getMaximumFrequency( cPreviousDataPoint.getTags( ) );
+                
+                //ds check over all frequencies (starting at maximum frequency)
+                for( int iFrequency: p_vecTagCutoffFrequencies )
+                {
+                    //ds as soon as we fit in
+                    if( iFrequency <= iMaximumFrequency )
+                    {
+                        //ds add the datapoint - if exists
+                        if( mapDataPointsCutoff.containsKey( iFrequency ) )
+                        {
+                            //ds increase
+                            mapDataPointsCutoff.put( iFrequency, mapDataPointsCutoff.get( iFrequency )+1 );
+                        }
+                        else
+                        {
+                            //ds first datapoint for this frequency
+                            mapDataPointsCutoff.put( iFrequency, 1 );
+                        }
+                        
+                        //ds done for this datapoint -> this line saves a lot of time since we only have to check for the maximum frequency
+                        break;
+                    }
+                }
+                
+                //ds new datapoint
+                cPreviousDataPoint = new CDataPoint( cResultSetDataPoint.getInt( "id_datapoint" ),
+                        cResultSetDataPoint.getURL( "url" ),
+                        cResultSetDataPoint.getString( "title" ),
+                        cResultSetDataPoint.getString( "type" ),
+                        cResultSetDataPoint.getInt( "likes" ),
+                        cResultSetDataPoint.getInt( "dislikes" ),
+                        cResultSetDataPoint.getInt( "count_comments" ),
+                        cResultSetDataPoint.getInt( "count_tags" ),
+                        cResultSetDataPoint.getBoolean( "is_photo" ),
+                        cResultSetDataPoint.getDouble( "text_amount" ),
+                        new Vector< CTag >( 0 ) );
+                
+                //ds add current tag
+                cPreviousDataPoint.getTagsModifiable( ).add( new CTag( cResultSetDataPoint.getInt( "id_tag" ), cResultSetDataPoint.getString( "value" ), cResultSetDataPoint.getInt( "frequency" ) ) );                
+            }
+        }
+        
+        //ds check the last datapoint (tag collection complete) - get maximum frequency
+        final int iMaximumFrequency = CTag.getMaximumFrequency( cPreviousDataPoint.getTags( ) );
+        
+        //ds check over all frequencies (starting at maximum frequency)
+        for( int iFrequency: p_vecTagCutoffFrequencies )
+        {
+            //ds as soon as we fit in
+            if( iFrequency <= iMaximumFrequency )
+            {
+                //ds add the datapoint - if exists
+                if( mapDataPointsCutoff.containsKey( iFrequency ) )
+                {
+                    //ds increase
+                    mapDataPointsCutoff.put( iFrequency, mapDataPointsCutoff.get( iFrequency )+1 );
+                }
+                else
+                {
+                    //ds first datapoint for this frequency
+                    mapDataPointsCutoff.put( iFrequency, 1 );
+                }
+                
+                //ds done for this datapoint -> this line saves a lot of time since we only have to check for the maximum frequency
+                break;
             }
         }
         
@@ -1356,7 +1451,7 @@ public final class CMySQLManager
         }        
     }
     
-    //ds helper for data element retrieval
+    /*ds helper for data element retrieval
     private final CDataPoint _getDataPointFromResultSet( final ResultSet p_cResultSetDataPoint ) throws SQLException, MalformedURLException
     {
         //ds get the ID
@@ -1408,64 +1503,56 @@ public final class CMySQLManager
         
         //ds return the datapoint
         return new CDataPoint( iID_DataPoint, new URL( strURL ), strTitle, strType, iLikes, iDislikes, iCountComments, iCountTags, bIsPhoto, dTextAmount, vecTags );
+    }*/
+    
+    //ds helper for pattern retrieval
+    private final CDataPoint _getDataPointFromResultSet( final ResultSet p_cResultSetDataPoint ) throws SQLException
+    {
+        //ds new datapoint
+        return new CDataPoint( p_cResultSetDataPoint.getInt( "id_datapoint" ),
+                               p_cResultSetDataPoint.getURL( "url" ),
+                               p_cResultSetDataPoint.getString( "title" ),
+                               p_cResultSetDataPoint.getString( "type" ),
+                               p_cResultSetDataPoint.getInt( "likes" ),
+                               p_cResultSetDataPoint.getInt( "dislikes" ),
+                               p_cResultSetDataPoint.getInt( "count_comments" ),
+                               p_cResultSetDataPoint.getInt( "count_tags" ),
+                               p_cResultSetDataPoint.getBoolean( "is_photo" ),
+                               p_cResultSetDataPoint.getDouble( "text_amount" ),
+                               new Vector< CTag >( 0 ) );
     }
     
-    /*ds helper for pattern retrieval
-    private final CPattern _getPatternFromResultSet( final ResultSet p_cResultSetDataPoint, final int p_iTagCutoffFrequency ) throws SQLException, CZEPMySQLManagerException
+    //ds helper for pattern retrieval
+    private final CPattern _getPatternFromResultSet( final ResultSet p_cResultSetPattern ) throws SQLException
     {
-        //ds get the ID
-        final int iID_DataPoint = p_cResultSetDataPoint.getInt( "id_datapoint" );
-        
-        //ds extract the data separately (for readability)
-        final String strTitle     = p_cResultSetDataPoint.getString( "title" );
-        final boolean bIsAnimated = p_cResultSetDataPoint.getBoolean( "animated" );
-        final boolean bIsPhoto    = p_cResultSetDataPoint.getBoolean( "photo" );
-        final boolean bIsText     = p_cResultSetDataPoint.getBoolean( "text" );
-        final boolean bIsLiked    = p_cResultSetDataPoint.getBoolean( "liked" );
-        final boolean bIsHot      = p_cResultSetDataPoint.getBoolean( "hot" );
-        
-        //ds tag vector to be filled
-        final Vector< CTag > vecTags = new Vector< CTag >( );
-        
-        //ds now retrieve the tag information
-        final PreparedStatement cRetrieveMapping = m_cMySQLConnection.prepareStatement( "SELECT * FROM `mappings` WHERE `id_datapoint` = ( ? )" );
-        cRetrieveMapping.setInt( 1, iID_DataPoint );
-        cRetrieveMapping.setQueryTimeout( m_iMySQLTimeoutMS );
-        
-        //ds get the mapping
-        final ResultSet cResultSetMapping = cRetrieveMapping.executeQuery( );
-        
-        //ds for all the mappings
-        while( cResultSetMapping.next( ) )
-        {
-            //ds get tag id
-            final int iID_Tag = cResultSetMapping.getInt( "id_tag" );
-       
-            //ds get actual tag text
-            final PreparedStatement cRetrieveTag = m_cMySQLConnection.prepareStatement( "SELECT * FROM `tags` WHERE `id_tag` = ( ? ) AND `frequency` > ( ? ) LIMIT 1" );
-            cRetrieveTag.setInt( 1, iID_Tag );
-            cRetrieveTag.setInt( 2, p_iTagCutoffFrequency );
-            cRetrieveTag.setQueryTimeout( m_iMySQLTimeoutMS );
-            
-            //ds get the tag
-            final ResultSet cResultSetTag = cRetrieveTag.executeQuery( );
-            
-            //ds if exists
-            if( cResultSetTag.next( ) )
-            {
-                //ds add the current tag
-                vecTags.add( new CTag( iID_Tag, cResultSetTag.getString( "value" ), cResultSetTag.getInt( "frequency" ) ) );
-            }
-        }
-        
-        //ds check if we got an error - no tags found for the current cutoff
-        if( vecTags.isEmpty( ) )
-        {
-            //ds escape
-            throw new CZEPMySQLManagerException( "invalid datapoint: " + iID_DataPoint + " - no tag with minimum frequency: " + p_iTagCutoffFrequency );                  
-        }
-        
-        //ds return the datapoint
-        return new CPattern( iID_DataPoint, strTitle, bIsAnimated, bIsPhoto, bIsText, bIsLiked, bIsHot, vecTags );
-    }*/
+        //ds new pattern
+        return new CPattern( p_cResultSetPattern.getInt( "id_datapoint" ),
+                             p_cResultSetPattern.getString( "title"),
+                             p_cResultSetPattern.getBoolean( "animated" ),
+                             p_cResultSetPattern.getBoolean( "photo" ),
+                             p_cResultSetPattern.getBoolean( "text" ),
+                             p_cResultSetPattern.getBoolean( "liked" ),
+                             p_cResultSetPattern.getBoolean( "hot" ),
+                             new Vector< CTag >( 0 ) );
+    }
+    
+    //ds pattern insertion
+    private final void _insertPattern( final CPattern p_cPattern, final String p_strTablePatterns ) throws SQLException
+    {
+        //ds get insertion query for the feature table
+        final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `" + p_strTablePatterns + "` ( `id_datapoint`, `title`, `animated`, `photo`, `text`, `liked`, `hot` ) VALUE ( ?, ?, ?, ?, ?, ?, ? )" );
+
+        //ds set params
+        cStatementInsertPattern.setInt( 1, p_cPattern.getID( ) );  
+        cStatementInsertPattern.setString( 2, p_cPattern.getTitle( ) );  
+        cStatementInsertPattern.setBoolean( 3, p_cPattern.isAnimated( ) );
+        cStatementInsertPattern.setBoolean( 4, p_cPattern.isPhoto( ) );
+        cStatementInsertPattern.setBoolean( 5, p_cPattern.isText( ) );
+        cStatementInsertPattern.setBoolean( 6, p_cPattern.isLiked( ) );
+        cStatementInsertPattern.setBoolean( 7, p_cPattern.isHot( ) );
+        cStatementInsertPattern.setQueryTimeout( m_iMySQLTimeoutMS );
+
+        //ds execute
+        cStatementInsertPattern.execute( );
+    }
 }

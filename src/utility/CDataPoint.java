@@ -24,16 +24,16 @@ public final class CDataPoint
     
     //ds constructor
     public CDataPoint( final int p_iID, 
-    		final URL p_cURL, 
-    		final String p_strTitle, 
-    		final String p_strType, 
-    		final int p_iLikes,
-    		final int p_iDislikes,
-    		final int p_iCountComments,
-    		final int p_iCountTags,
-    		final boolean p_bIsPhoto,
-    		final double p_dTextAmount,
-    		final Vector< CTag > p_vecTags )
+                       final URL p_cURL, 
+                       final String p_strTitle, 
+                       final String p_strType, 
+                       final int p_iLikes,
+                       final int p_iDislikes,
+                       final int p_iCountComments,
+                       final int p_iCountTags,
+                       final boolean p_bIsPhoto,
+                       final double p_dTextAmount,
+                       final Vector< CTag > p_vecTags )
     {
         //ds set the fields
         m_iID        	 = p_iID;
@@ -77,5 +77,6 @@ public final class CDataPoint
     public final int getCountTags( ){ return m_iCountTags; }
     public final boolean isPhoto( ){ return m_bIsPhoto; }
     public final double getTextAmount( ){ return m_dTextAmount; }
-    public final Vector< CTag > getTags( ){ return m_vecTags; }
+    public final Vector< CTag > getTags( ){ return new Vector< CTag >( m_vecTags ); }
+    public final Vector< CTag > getTagsModifiable( ){ return m_vecTags; }
 }
