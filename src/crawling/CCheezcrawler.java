@@ -97,7 +97,7 @@ public class CCheezcrawler extends Thread
         final int iNumberOfImages_Cheezcrawler = 10000;
         final int iMaximumPage_Cheezcrawler    = 4332;
         final int iTimeoutMS_Cheezcrawler      = 60000;
-        final int iLogLevel_Cheezcrawler       = 2;
+        final int iLogLevel_Cheezcrawler       = 1;
         
     	//ds load OpenCV core
     	System.loadLibrary( Core.NATIVE_LIBRARY_NAME );
