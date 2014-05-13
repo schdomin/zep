@@ -69,7 +69,7 @@ public final class CMySQLManager
         String strMySQLServerURL = "";
         String strMySQLUsername  = "";
         String strMySQLPassword  = "";
-        final int iTagCutoffFrequency = 104;
+        final int iTagCutoffFrequency = 10;
         
         try
         {

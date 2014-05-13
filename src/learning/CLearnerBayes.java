@@ -415,6 +415,9 @@ public final class CLearnerBayes
     //ds evolve the datapool = classification
     public final void classify( ) throws CZEPEoIException
     {
+        //ds fancy Bayes operations starting
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify)      Labeled patterns: [" + ( m_iCounterLikes+m_iCounterDislikes ) + "]" );
+        
         //ds classification was requested
         ++m_iCounterClassification;
         
@@ -447,7 +450,7 @@ public final class CLearnerBayes
         }
         
         //ds fancy Bayes operations starting
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) Classifying: [" + m_vecDataPool.size( ) + "] patterns" ); 
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify)  Classifying patterns: [" + m_vecDataPool.size( ) + "]" ); 
             
         //ds classify the patterns and obtain a sorted representation
         m_vecDataPool = _classifyPatterns( m_vecDataPool );
@@ -470,8 +473,8 @@ public final class CLearnerBayes
             m_vecDataPool.subList( 0, m_iSizeSelection-m_iNumberOfRandomSamples ).clear( );
             
             //ds info - we have to skip the random patterns since those have probability 0
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) maximum probability: [" + m_vecSelectionPoolNext.get( m_iNumberOfRandomSamples ).getLikeliness( ) + "]" );
-            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify) minimum probability: [" + m_vecSelectionPoolNext.lastElement( ).getLikeliness( ) + "]" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify)   maximum probability: [" + m_vecSelectionPoolNext.get( m_iNumberOfRandomSamples ).getLikeliness( ) + "]" );
+            System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(classify)   minimum probability: [" + m_vecSelectionPoolNext.lastElement( ).getLikeliness( ) + "]" );
         }
         else
         {
