@@ -1261,28 +1261,34 @@ public final class CMySQLManager
     public final void writeCSVFromLogLearner( final String p_strUsername ) throws SQLException, IOException
     {
         //ds query on the learners table
-        final PreparedStatement cRetrieveDataPoints = m_cMySQLConnection.prepareStatement( "SELECT * FROM `log_learner` WHERE `username` = ( ? )" );
-        cRetrieveDataPoints.setString( 1, p_strUsername );
-        cRetrieveDataPoints.setQueryTimeout( m_iMySQLTimeoutMS ); 
+        final PreparedStatement cRetrievePickInformation = m_cMySQLConnection.prepareStatement( "SELECT * FROM `log_learner` WHERE `username` = ( ? )" );
+        cRetrievePickInformation.setString( 1, p_strUsername );
+        cRetrievePickInformation.setQueryTimeout( m_iMySQLTimeoutMS ); 
         
         //ds get the result
-        final ResultSet cResultSetDataPoint = cRetrieveDataPoints.executeQuery( );
+        final ResultSet cResultSetPickInformation = cRetrievePickInformation.executeQuery( );
         
         //ds counters
         int iCounterDataPoint = 0;
         int iCounterNettoLike = 0;
         
         //ds open writer
-        FileWriter cWriter = new FileWriter( "users/" + p_strUsername + ".csv", true );
+        FileWriter cWriter = new FileWriter( p_strUsername + ".csv", false );
         
         //ds check all retrieved datapoints
-        while( cResultSetDataPoint.next( ) )
+        while( cResultSetPickInformation.next( ) )
         {   
             //ds get probability information
-            final double dProbability = cResultSetDataPoint.getDouble( "probability" );
+            final double dProbability = cResultSetPickInformation.getDouble( "probability" );
+            
+            //ds binary boolean for logging: 0 false, 1 true
+            int iIsRandom = 0;
+            
+            //ds determine
+            if( cResultSetPickInformation.getBoolean( "random" ) ){ iIsRandom = 1; }
             
             //ds get labeling information - if liked
-            if( cResultSetDataPoint.getBoolean( "liked" ) )
+            if( cResultSetPickInformation.getBoolean( "liked" ) )
             {
                 //ds positive netto
                 ++iCounterNettoLike;
@@ -1293,8 +1299,8 @@ public final class CMySQLManager
                 --iCounterNettoLike;
             }
             
-            //ds set info
-            cWriter.append( iCounterDataPoint + "," + iCounterNettoLike + "," + dProbability + "\n" );
+            //ds set info [counter,netto likes, probability, random]
+            cWriter.append( iCounterDataPoint + "," + iCounterNettoLike + "," + dProbability + "," + iIsRandom + "\n" );
             
             //ds next datapoint
             ++iCounterDataPoint;

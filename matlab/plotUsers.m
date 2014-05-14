@@ -6,6 +6,7 @@ matLearning4 = csvread( 'users/judas.csv' );
 matLearning5 = csvread( 'users/juitto.csv' );
 matLearning6 = csvread( 'users/ProProcrastinator.csv' );
 matLearning7 = csvread( 'users/themanuuu.csv' );
+matLearning8 = csvread( 'users/memyself.csv' );
 
 %ds plot probability curves
 figure( 1 );
@@ -47,3 +48,13 @@ xlabel( 'datapoint' );
 ylabel(plot4(1),'probability') % left y-axis
 ylabel(plot4(2),'netto likes') % right y-axis
 saveas( 4, 'users/probability_curve_themanuuu.pdf' );
+
+figure( 5 );
+plot5 = plotyy( matLearning8(:,1), matLearning8(:,3), matLearning8(:,1), matLearning8(:,2)  );
+grid on;
+title( 'Probability' );
+legend( 'memyself' );
+xlabel( 'datapoint' );
+ylabel(plot5(1),'probability') % left y-axis
+ylabel(plot5(2),'netto likes') % right y-axis
+saveas( 5, 'users/probability_curve_memyself.pdf' );

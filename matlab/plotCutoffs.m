@@ -12,6 +12,12 @@ vecPoints   = matCutoffs( :, 3 );
 iMaximumTypes  = max( vecTypes );
 iMaximumPoints = max( vecPoints );
 
+%ds mark cutoff choice
+iIndexCutoff = find( vecCutoffs==104 );
+iCoordinateX = vecCutoffs( iIndexCutoff );
+iCoordinateY = vecPoints( iIndexCutoff );
+iTypes       = vecTypes( iIndexCutoff );
+
 %ds normalize
 %vecNormalizedTypes = vecTypes./iMaximumTypes;
 %vecNormalizedPoints = vecPoints./iMaximumPoints;
@@ -19,12 +25,15 @@ iMaximumPoints = max( vecPoints );
 %ds plot
 figure( 1 );
 plot( vecCutoffs, vecTypes, 'blue', vecCutoffs, vecPoints, 'red' );
+line( [ iCoordinateX, iCoordinateX ], [0, iCoordinateY ], 'Color', 'black' );
+axis( [0, vecCutoffs( end ), 0, iMaximumPoints ] );
 set(gca,'YTickLabel',num2str(get(gca,'YTick').'));
 grid on;
 title( 'Cutoff Relation', 'interpreter', 'latex' );
 xlabel( 'Cutoff frequency', 'interpreter', 'latex' );
 ylabel( 'Amount', 'interpreter', 'latex' );
-hLegend = legend( [ 'Tag types (total: ', num2str( iMaximumTypes ), ')\hspace{0.5cm}' ], [ 'Datapoints (total: ', num2str( iMaximumPoints ),  ')\hspace{0.5cm}' ] );
+text( iCoordinateX, iCoordinateY, [ ' cutoff 104: points=', num2str( iCoordinateY ), ', types=', num2str( iTypes ) ], 'interpreter', 'latex', 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'left' );
+hLegend = legend( [ 'Tag types (total: ', num2str( iMaximumTypes ), ')\hspace{0.5cm}' ], [ 'Datapoints (total: ', num2str( iMaximumPoints ),  ')\hspace{0.5cm}' ], 'Current cutoff choice ($104$)' );
 set( hLegend, 'interpreter', 'Latex' );
 saveas( 1, 'cutoffs.pdf' );
 
@@ -34,6 +43,7 @@ vecRelative = vecPoints./( vecTypes+vecCutoffs );
 %ds plot
 figure( 2 );
 hPlot = plot( vecCutoffs, vecRelative, 'blue' );
+axis( [0, vecCutoffs( end ), 0, 90 ] );
 title( 'Ratio f(x): $\frac{DataPoints(x)}{TagTypes(x)+x}$', 'interpreter', 'latex' );
 xlabel( 'x: Cutoff frequency', 'interpreter', 'latex' );
 ylabel( 'f(x): Ratio', 'interpreter', 'latex' );

@@ -46,7 +46,7 @@ public final class CLearnerBayes
     Map< Integer, Double > m_mapAbsoluteProbabilities = null;
     
     //ds cutoff frequency
-    final int m_iTagCutoffFrequency = 10;
+    final int m_iTagCutoffFrequency = 104;
 
     //ds counters 
     private int m_iCounterLikes         = 0;
@@ -438,8 +438,9 @@ public final class CLearnerBayes
                 //ds get the pattern
                 CPattern cRandomPattern = m_vecDataPool.get( iIDRandom ).clone( );
                 
-                //ds set random flag
+                //ds set random flag and set probability to 0
                 cRandomPattern.setRandom( true );
+                cRandomPattern.setLikeliness( 0.0 );
                 
                 //ds pick a random pattern and add it
                 vecRandomPool.add( cRandomPattern );

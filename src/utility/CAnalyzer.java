@@ -68,9 +68,9 @@ public abstract class CAnalyzer
         try
         {
             //ds log cutoffs
-            logCutoffs( "cutoffs.csv" );
+            //logCutoffs( "cutoffs.csv" );
             
-            /*ds user names to log
+            //ds user names to log
             Vector< String > vecUsernames = new Vector< String >( 8 );
             vecUsernames.add( "Isabellinska" );
             vecUsernames.add( "judas" );
@@ -80,9 +80,10 @@ public abstract class CAnalyzer
             vecUsernames.add( "carnage" );
             vecUsernames.add( "ChillyOnMyWilly" );
             vecUsernames.add( "Glaus" );
+            vecUsernames.add( "memyself" );
             
             //ds create the csvs for the users
-            logFromLearner( vecUsernames );*/
+            logFromLearner( vecUsernames );
         }
         catch( Exception e )
         {

@@ -37,3 +37,21 @@ TROUBLESHOOTING:
 - Command java not found: make sure the java binary path is set in the $PATH environment variable
 - Make sure to use a unique username without any magic, hebrew letters
 - Continuous logging available through the console
+
+
+
+-------------------------------------------------------------
+CONFIG FILE:
+
+- Create a local file: config.txt in the zep directory (top level)
+- The file has the following syntax (only the lines with = signs matter):
+
+//ds GUI
+m_iWindowWidth=1200
+m_iWindowHeight=800
+            
+//ds MySQL
+m_strMySQLServerURL=jdbc:mysql://pc-10129.ethz.ch:3306/someuser
+m_strMySQLUsername=someuser
+m_strMySQLPassword=notthistime
+
