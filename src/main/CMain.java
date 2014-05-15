@@ -206,8 +206,9 @@ public abstract class CMain
     //ds MySQL logger
     private final static void _logMaster( final CLearnerBayes p_cLearner, final CMySQLManager p_cMySQLManager, final String p_strInfo )
     {
-        //ds get username
+        //ds get username and session id
         final String strUsername = p_cLearner.getUsername( );
+        final int iSessionID     = p_cLearner.getSessionID( );
         
         //ds if set
         if( null != strUsername )
@@ -215,7 +216,7 @@ public abstract class CMain
             try
             {
                 //ds log
-                p_cMySQLManager.logMaster( strUsername, p_strInfo );
+                p_cMySQLManager.logMaster( strUsername, iSessionID, p_strInfo );
             }
             catch( SQLException e )
             {

@@ -69,8 +69,9 @@ public final class CLearnerBayes
     //ds mysql manager
     private final CMySQLManager m_cMySQLManager;
     
-    //ds username
+    //ds username and session id
     private String m_strUsername = null;
+    private int m_iSessionID = 0;
     
     //ds total numbers
     private int m_iNumberOfPatterns                   = 0;
@@ -146,7 +147,7 @@ public final class CLearnerBayes
             _undoPick( p_cLastPattern );
             
             //ds update log
-            m_cMySQLManager.logUpdatePattern( m_strUsername, p_cLastPattern, ELearnerLabel.LIKE == p_eFlag );
+            m_cMySQLManager.logUpdatePattern( m_strUsername,  m_iSessionID, p_cLastPattern, ELearnerLabel.LIKE == p_eFlag );
             
             //ds evaluate the pick again
             _evaluatePick( p_cLastPattern, p_eFlag );
@@ -159,8 +160,8 @@ public final class CLearnerBayes
         }
         else
         {
-            //ds log to learner
-            m_cMySQLManager.logAddPattern( m_strUsername, p_cLastPattern, ELearnerLabel.LIKE == p_eFlag );
+            //ds regular case - log to learner
+            m_cMySQLManager.logAddPattern( m_strUsername, m_iSessionID, p_cLastPattern, ELearnerLabel.LIKE == p_eFlag );
             
             //ds evaluate the pick normally
             _evaluatePick( p_cLastPattern, p_eFlag );
@@ -376,15 +377,20 @@ public final class CLearnerBayes
     public final int getNumberOfDislikes( ){ return m_iCounterDislikes; }
     public final int getOperations( ){ return m_vecIDsHistory.size( ); }
     public final String getUsername( ){ return m_strUsername; }
+    public final int getSessionID( ){ return m_iSessionID; }
     
     //ds setters
-    public final void setUsername( final String p_strUsername )
+    public final void setUsername( final String p_strUsername ) throws SQLException
     {
         //ds set username
         m_strUsername = p_strUsername; 
         
+        //ds retrieve new session id
+        m_iSessionID = m_cMySQLManager.getSessionID( p_strUsername );
+        
         //ds log setting
         System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(setUsername) m_strUsername=" + p_strUsername );
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CLearnerBayes>(setUsername) m_iIDSession=" + m_iSessionID );
         
         //ds and in mysql
         _logMaster( "<CLearnerBayes>(setUsername) new username: " + p_strUsername );
@@ -501,7 +507,7 @@ public final class CLearnerBayes
             try
             {
                 //ds log
-                m_cMySQLManager.logMaster( m_strUsername, p_strInfo );
+                m_cMySQLManager.logMaster( m_strUsername, m_iSessionID, p_strInfo );
             }
             catch( SQLException e )
             {

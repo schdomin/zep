@@ -981,38 +981,41 @@ public final class CMySQLManager
     }
     
     //ds log to master database
-    public final void logMaster( final String p_strUsername, final String p_strText ) throws SQLException
+    public final void logMaster( final String p_strUsername, final int p_iSessionID, final String p_strText ) throws SQLException
     {
         //ds simple insertion
-        final PreparedStatement cStatementInsertText = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_master` ( `username`, `text` ) VALUE ( ?, ? )" );
+        final PreparedStatement cStatementInsertText = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_master` ( `username`, `id_session`, `text` ) VALUE ( ?, ?, ? )" );
         cStatementInsertText.setString( 1, p_strUsername );
-        cStatementInsertText.setString( 2, p_strText );
+        cStatementInsertText.setInt( 2, p_iSessionID );
+        cStatementInsertText.setString( 3, p_strText );
         cStatementInsertText.setQueryTimeout( m_iMySQLTimeoutMS );
         cStatementInsertText.execute( );
     }
     
     //ds log to learner database
-    public final void logAddPattern( final String p_strUsername, final CPattern p_cPattern, final boolean p_bIsLiked ) throws SQLException
+    public final void logAddPattern( final String p_strUsername, final int p_iSessionID, final CPattern p_cPattern, final boolean p_bIsLiked ) throws SQLException
     {
         //ds simple insertion
-        final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_learner` ( `username`, `id_datapoint`, `random`, `liked`, `probability` ) VALUE ( ?, ?, ?, ?, ? )" );
+        final PreparedStatement cStatementInsertPattern = m_cMySQLConnection.prepareStatement( "INSERT INTO `log_learner` ( `username`, `id_session`, `id_datapoint`, `random`, `liked`, `probability` ) VALUE ( ?, ?, ?, ?, ?, ? )" );
         cStatementInsertPattern.setString( 1, p_strUsername );
-        cStatementInsertPattern.setInt( 2, p_cPattern.getID( ) );
-        cStatementInsertPattern.setBoolean( 3, p_cPattern.isRandom( ) );
-        cStatementInsertPattern.setBoolean( 4, p_bIsLiked );
-        cStatementInsertPattern.setDouble( 5, p_cPattern.getLikeliness( ) );
+        cStatementInsertPattern.setInt( 2, p_iSessionID );
+        cStatementInsertPattern.setInt( 3, p_cPattern.getID( ) );
+        cStatementInsertPattern.setBoolean( 4, p_cPattern.isRandom( ) );
+        cStatementInsertPattern.setBoolean( 5, p_bIsLiked );
+        cStatementInsertPattern.setDouble( 6, p_cPattern.getLikeliness( ) );
         cStatementInsertPattern.setQueryTimeout( m_iMySQLTimeoutMS );
         cStatementInsertPattern.execute( );
     }
     
     //ds log to learner database
-    public final void logUpdatePattern( final String p_strUsername, final CPattern p_cPattern, final boolean p_bIsLiked ) throws SQLException
+    public final void logUpdatePattern( final String p_strUsername, final int p_iSessionID, final CPattern p_cPattern, final boolean p_bIsLiked ) throws SQLException
     {
         //ds simple update
-        final PreparedStatement cStatementUpdatePattern = m_cMySQLConnection.prepareStatement( "UPDATE `log_learner` SET `liked` = ( ? ) WHERE `username` = ( ? ) AND `id_datapoint` = ( ? )" );
+        final PreparedStatement cStatementUpdatePattern = m_cMySQLConnection.prepareStatement( "UPDATE `log_learner` SET `liked` = ( ? ) WHERE `username` = ( ? ) AND `id_session` = ( ? ) AND `id_datapoint` = ( ? )" );
         cStatementUpdatePattern.setBoolean( 1, p_bIsLiked );
         cStatementUpdatePattern.setString( 2, p_strUsername );
-        cStatementUpdatePattern.setInt( 3, p_cPattern.getID( ) );
+        cStatementUpdatePattern.setInt( 3, p_iSessionID );
+        cStatementUpdatePattern.setInt( 4, p_cPattern.getID( ) );
         cStatementUpdatePattern.setQueryTimeout( m_iMySQLTimeoutMS );
         cStatementUpdatePattern.execute( );
     }
@@ -1076,6 +1079,33 @@ public final class CMySQLManager
         {
             //ds available
             return true;
+        }
+    }
+    
+    //ds retrieves new session id for username
+    public final int getSessionID( final String p_strUsername ) throws SQLException
+    {
+        //ds query for the username on the master table to get the last session id
+        final PreparedStatement cRetrieveLastSession = m_cMySQLConnection.prepareStatement( "SELECT * FROM `log_master` WHERE `username` = ( ? ) ORDER BY `timestamp` DESC LIMIT 1" );
+        cRetrieveLastSession.setString( 1, p_strUsername );
+        cRetrieveLastSession.setQueryTimeout( m_iMySQLTimeoutMS );
+        
+        //ds get the result
+        final ResultSet cResultSetLastSession = cRetrieveLastSession.executeQuery( );
+        
+        //ds if we get a result we have to increment the retrieved session id for the new one
+        if( cResultSetLastSession.next( ) )
+        {
+            //ds get the session id
+            final int iLastSessionID = cResultSetLastSession.getInt( "id_session" );
+            
+            //ds return new session id
+            return iLastSessionID+1;
+        }
+        else
+        {
+            //ds no entry on learners table - new user, new session id is 0
+            return 0;
         }
     }
     

@@ -223,6 +223,7 @@ public final class CGUI implements ActionListener, KeyListener
         //ds set user active
         m_cMySQLManager.setActiveUser( strUsername );
         
+        
         //ds and log
         System.out.println( "[" + CLogger.getStamp( ) + "]<CGUI>(launch) Login of: [" + strUsername + "] successful" );
         
@@ -621,8 +622,9 @@ public final class CGUI implements ActionListener, KeyListener
     //ds MySQL logger
     private final void _logMaster( final String p_strInfo )
     {
-        //ds get username
+        //ds get username and session id
         final String strUsername = m_cLearner.getUsername( );
+        final int iSessionID     = m_cLearner.getSessionID( );
         
         //ds if set
         if( null != strUsername )
@@ -630,7 +632,7 @@ public final class CGUI implements ActionListener, KeyListener
             try
             {
                 //ds log
-                m_cMySQLManager.logMaster( strUsername, p_strInfo );
+                m_cMySQLManager.logMaster( strUsername, iSessionID, p_strInfo );
             }
             catch( SQLException e )
             {
