@@ -70,7 +70,10 @@ public abstract class CAnalyzer
             //ds log cutoffs
             //logCutoffs( "cutoffs.csv" );
             
-            //ds user names to log
+            //ds log tags liked and disliked
+            logLearnerTagFrequencies( "tags_liked.csv", "tags_disliked.csv" );
+            
+            /*ds user names to log
             Vector< String > vecUsernames = new Vector< String >( 8 );
             vecUsernames.add( "Isabellinska" );
             vecUsernames.add( "judas" );
@@ -83,7 +86,7 @@ public abstract class CAnalyzer
             vecUsernames.add( "memyself" );
             
             //ds create the csvs for the users
-            logFromLearner( vecUsernames );
+            logFromLearner( vecUsernames );*/
         }
         catch( Exception e )
         {
@@ -154,7 +157,7 @@ public abstract class CAnalyzer
         Collections.sort( vecCutoffValues );        
         
         //ds open writer
-        FileWriter cWriter = new FileWriter( p_strFilename, true );
+        FileWriter cWriter = new FileWriter( p_strFilename, false );
         
         //ds append entry for each cutoff
         for( int iCutoff: vecCutoffValues )
@@ -180,5 +183,38 @@ public abstract class CAnalyzer
         }
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logCutoffs) learner log evaluation complete" );           
+    }
+    
+    public static void logLearnerTagFrequencies( final String p_strFilenameLiked, final String p_strFilenameDisliked ) throws SQLException, IOException, CZEPMySQLManagerException
+    {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logLearnerTagFrequencies) Aqcuiring tag information from learner table .." );  
+        
+        //ds map with tag names and frequency
+        Vector< CPair< String, Double > > vecTagFrequenciesLiked    = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", true );
+        Vector< CPair< String, Double > > vecTagFrequenciesDisliked = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", false );
+        
+        //ds sort maps by frequencies, descending
+        Collections.sort( vecTagFrequenciesLiked, new CPair.CComparatorDecreasing( ) );
+        Collections.sort( vecTagFrequenciesDisliked, new CPair.CComparatorDecreasing( ) );
+        
+        //ds open writers
+        FileWriter cWriterLiked    = new FileWriter( p_strFilenameLiked, false );
+        FileWriter cWriterDisliked = new FileWriter( p_strFilenameDisliked, false );
+        
+        //ds write vectors to file
+        for( CPair< String, Double > cTag: vecTagFrequenciesLiked )
+        {
+            cWriterLiked.append( cTag.A + "," + cTag.B + "\n" );
+        }
+        for( CPair< String, Double > cTag: vecTagFrequenciesDisliked )
+        {
+            cWriterDisliked.append( cTag.A + "," + cTag.B + "\n" );
+        }
+        
+        //ds close writer
+        cWriterLiked.close( );
+        cWriterDisliked.close( );
+       
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logLearnerTagFrequencies) Logging complete" );           
     }
 }

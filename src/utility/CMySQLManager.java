@@ -584,7 +584,7 @@ public final class CMySQLManager
         
         //ds query for the first pattern - implicit inner join
         final PreparedStatement cRetrievePatternAndTags = m_cMySQLConnection.prepareStatement
-                                                         ( "SELECT * FROM " + strTablePatterns + " JOIN mappings ON " + strTablePatterns + ".`id_datapoint` = `mappings`.`id_datapoint` " +
+                                                         ( "SELECT * FROM " + strTablePatterns + " JOIN `mappings` ON " + strTablePatterns + ".`id_datapoint` = `mappings`.`id_datapoint` " +
                 		                                                                          "JOIN " + strTableTags + " ON " + strTableTags + ".`id_tag` = `mappings`.`id_tag`" );
         
         //ds get the result
@@ -707,8 +707,8 @@ public final class CMySQLManager
         
       //ds query for the first datapoint - implicit inner join
         final PreparedStatement cRetrieveDataPointsAndTags = m_cMySQLConnection.prepareStatement
-                                                         ( "SELECT * FROM `datapoints` JOIN mappings ON `datapoints`.`id_datapoint` = `mappings`.`id_datapoint` " +
-                                                                                      "JOIN `tags` ON `tags`.`id_tag` = `mappings`.`id_tag`" );
+                                                             ( "SELECT * FROM `datapoints` JOIN `mappings` ON `datapoints`.`id_datapoint` = `mappings`.`id_datapoint` " +
+                                                                                          "JOIN `tags` ON `tags`.`id_tag` = `mappings`.`id_tag`" );
         
         //ds get the result
         final ResultSet cResultSetDataPoint = cRetrieveDataPointsAndTags.executeQuery( );
@@ -1173,8 +1173,8 @@ public final class CMySQLManager
         
         //ds query for the first datapoint - implicit inner join
         final PreparedStatement cRetrieveDataPointsAndTags = m_cMySQLConnection.prepareStatement
-                                                         ( "SELECT * FROM `datapoints` JOIN mappings ON `datapoints`.`id_datapoint` = `mappings`.`id_datapoint` " +
-                                                                                      "JOIN `tags` ON `tags`.`id_tag` = `mappings`.`id_tag`" );
+                                                             ( "SELECT * FROM `datapoints` JOIN mappings ON `datapoints`.`id_datapoint` = `mappings`.`id_datapoint` " +
+                                                                                          "JOIN `tags` ON `tags`.`id_tag` = `mappings`.`id_tag`" );
         
         //ds get the result
         final ResultSet cResultSetDataPoint = cRetrieveDataPointsAndTags.executeQuery( );
@@ -1454,7 +1454,7 @@ public final class CMySQLManager
     //ds inserts tag into table
     private final void _insertTag( final CTag p_cTag, final String p_strTableTags ) throws SQLException
     {
-      //ds create an entry in the tags table - check if we already have an entry
+        //ds create an entry in the tags table - check if we already have an entry
         final PreparedStatement cStatementCheckTags = m_cMySQLConnection.prepareStatement( "SELECT * from `" + p_strTableTags + "` WHERE `value` = ( ? ) LIMIT 1" );
         cStatementCheckTags.setString( 1, p_cTag.getValue( ) );
         cStatementCheckTags.setQueryTimeout( m_iMySQLTimeoutMS );
@@ -1485,6 +1485,75 @@ public final class CMySQLManager
             cStatementInsertTag.setQueryTimeout( m_iMySQLTimeoutMS );
             cStatementInsertTag.execute( );                    
         }        
+    }
+    
+    //ds get tag frequencies from learner log
+    public final Vector< CPair< String, Double > > getLearnerTagFrequenciesNormalized( final String p_strTableTags, boolean p_bCountLikes ) throws SQLException, CZEPMySQLManagerException
+    {
+        //ds return map
+        Vector< CPair< String, Double > > vecFrequencies = new Vector< CPair< String, Double > >( 0 ); 
+        
+        //ds query for the first datapoint - implicit inner join
+        final PreparedStatement cRetrieveDataPointsAndTags = m_cMySQLConnection.prepareStatement
+                                                             ( "SELECT * FROM `log_learner` JOIN `mappings` ON `log_learner`.`id_datapoint` = `mappings`.`id_datapoint` " +
+                                                                                           "JOIN " + p_strTableTags + " ON " + p_strTableTags + ".`id_tag` = `mappings`.`id_tag`" );
+        
+        //ds get the result
+        final ResultSet cResultSetDataPoint = cRetrieveDataPointsAndTags.executeQuery( );
+        
+        //ds for all datapoints in the learners table
+        while( cResultSetDataPoint.next( ) )
+        {
+            //ds get the tag name and label
+            final String strTag  = cResultSetDataPoint.getString( "value" );
+            final boolean bLiked = cResultSetDataPoint.getBoolean( "liked" );
+            
+            //ds check if we are counting likes and got a like or if we are counting dislikes and got a dislike
+            if( ( p_bCountLikes && bLiked ) || ( !p_bCountLikes && !bLiked ) )
+            {
+                //ds check if we already have an entry
+                final int iIndex = vecFrequencies.indexOf( new CPair< String, Double >( strTag, 1.0 ) );
+                
+                //ds if we already have an entry for this tag type
+                if( -1 != iIndex )
+                {
+                    //ds just increment the frequency
+                    vecFrequencies.set( iIndex, new CPair< String, Double >( strTag, vecFrequencies.get( iIndex ).B+1.0 ) );
+                }
+                else
+                {
+                    //ds create new entry with frequency 1
+                    vecFrequencies.add( new CPair< String, Double >( strTag, 1.0 ) );
+                }
+            }
+        }
+        
+        //ds we now have to normalize the tag frequencies by the total frequencies - TODO: this loop is highly inefficient but is kept for readability
+        for( CPair< String, Double > cTag: vecFrequencies )
+        {
+            //ds get the frequency from MySQL
+            final PreparedStatement cStatementGetFrequency = m_cMySQLConnection.prepareStatement( "SELECT * from `" + p_strTableTags + "` WHERE `value` = ( ? ) LIMIT 1" );
+            cStatementGetFrequency.setString( 1, cTag.A );
+            cStatementGetFrequency.setQueryTimeout( m_iMySQLTimeoutMS );
+            
+            //ds get the result
+            final ResultSet cResultSetFrequency = cStatementGetFrequency.executeQuery( );
+            
+            //ds if we got a frequency result
+            if( cResultSetFrequency.next( ) )
+            {
+                //ds normalize by that amount
+                cTag.B = cTag.B/cResultSetFrequency.getInt( "frequency" );
+            }
+            else
+            {
+                //ds escape
+                throw new CZEPMySQLManagerException( "no frequency found for tag: " + cTag.A );
+            }
+        }
+        
+        //ds return
+        return vecFrequencies;
     }
     
     /*ds helper for data element retrieval
