@@ -47,3 +47,4 @@ echo "LAUNCH: JAVA_HOME set - calling java from JAVA_HOME"
 pause
 
 )
+
