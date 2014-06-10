@@ -190,25 +190,25 @@ public abstract class CAnalyzer
         System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logLearnerTagFrequencies) Aqcuiring tag information from learner table .." );  
         
         //ds map with tag names and frequency
-        Vector< CPair< String, Double > > vecTagFrequenciesLiked    = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", true );
-        Vector< CPair< String, Double > > vecTagFrequenciesDisliked = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", false );
+        Vector< CTriplet< String, Double, Integer > > vecTagFrequenciesLiked    = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", true );
+        Vector< CTriplet< String, Double, Integer > > vecTagFrequenciesDisliked = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", false );
         
         //ds sort maps by frequencies, descending
-        Collections.sort( vecTagFrequenciesLiked, new CPair.CComparatorDecreasing( ) );
-        Collections.sort( vecTagFrequenciesDisliked, new CPair.CComparatorDecreasing( ) );
+        Collections.sort( vecTagFrequenciesLiked, new CTriplet.CComparatorDecreasing( ) );
+        Collections.sort( vecTagFrequenciesDisliked, new CTriplet.CComparatorDecreasing( ) );
         
         //ds open writers
         FileWriter cWriterLiked    = new FileWriter( p_strFilenameLiked, false );
         FileWriter cWriterDisliked = new FileWriter( p_strFilenameDisliked, false );
         
         //ds write vectors to file
-        for( CPair< String, Double > cTag: vecTagFrequenciesLiked )
+        for( CTriplet< String, Double, Integer > cTag: vecTagFrequenciesLiked )
         {
-            cWriterLiked.append( cTag.A + "," + cTag.B + "\n" );
+            cWriterLiked.append( cTag.A + "," + cTag.B + "," + cTag.C + "\n" );
         }
-        for( CPair< String, Double > cTag: vecTagFrequenciesDisliked )
+        for( CTriplet< String, Double, Integer > cTag: vecTagFrequenciesDisliked )
         {
-            cWriterDisliked.append( cTag.A + "," + cTag.B + "\n" );
+            cWriterDisliked.append( cTag.A + "," + cTag.B + "," + cTag.C + "\n" );
         }
         
         //ds close writer

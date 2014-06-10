@@ -1488,10 +1488,10 @@ public final class CMySQLManager
     }
     
     //ds get tag frequencies from learner log
-    public final Vector< CPair< String, Double > > getLearnerTagFrequenciesNormalized( final String p_strTableTags, boolean p_bCountLikes ) throws SQLException, CZEPMySQLManagerException
+    public final Vector< CTriplet< String, Double, Integer > > getLearnerTagFrequenciesNormalized( final String p_strTableTags, boolean p_bCountLikes ) throws SQLException, CZEPMySQLManagerException
     {
         //ds return map
-        Vector< CPair< String, Double > > vecFrequencies = new Vector< CPair< String, Double > >( 0 ); 
+        Vector< CTriplet< String, Double, Integer > > vecFrequencies = new Vector< CTriplet< String, Double, Integer > >( 0 ); 
         
         //ds query for the first datapoint - implicit inner join
         final PreparedStatement cRetrieveDataPointsAndTags = m_cMySQLConnection.prepareStatement
@@ -1511,25 +1511,25 @@ public final class CMySQLManager
             //ds check if we are counting likes and got a like or if we are counting dislikes and got a dislike
             if( ( p_bCountLikes && bLiked ) || ( !p_bCountLikes && !bLiked ) )
             {
-                //ds check if we already have an entry
-                final int iIndex = vecFrequencies.indexOf( new CPair< String, Double >( strTag, 1.0 ) );
+                //ds check if we already have an entry (the numbers dont matter)
+                final int iIndex = vecFrequencies.indexOf( new CTriplet< String, Double, Integer >( strTag, 1.0, 1 ) );
                 
                 //ds if we already have an entry for this tag type
                 if( -1 != iIndex )
                 {
-                    //ds just increment the frequency
-                    vecFrequencies.set( iIndex, new CPair< String, Double >( strTag, vecFrequencies.get( iIndex ).B+1.0 ) );
+                    //ds just increment the frequency values
+                    vecFrequencies.set( iIndex, new CTriplet< String, Double, Integer >( strTag, vecFrequencies.get( iIndex ).B+1.0, vecFrequencies.get( iIndex ).C+1 ) );
                 }
                 else
                 {
                     //ds create new entry with frequency 1
-                    vecFrequencies.add( new CPair< String, Double >( strTag, 1.0 ) );
+                    vecFrequencies.add( new CTriplet< String, Double, Integer >( strTag, 1.0, 1 ) );
                 }
             }
         }
         
         //ds we now have to normalize the tag frequencies by the total frequencies - TODO: this loop is highly inefficient but is kept for readability
-        for( CPair< String, Double > cTag: vecFrequencies )
+        for( CTriplet< String, Double, Integer > cTag: vecFrequencies )
         {
             //ds get the frequency from MySQL
             final PreparedStatement cStatementGetFrequency = m_cMySQLConnection.prepareStatement( "SELECT * from `" + p_strTableTags + "` WHERE `value` = ( ? ) LIMIT 1" );
