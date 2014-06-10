@@ -1,3 +1,5 @@
+clear;
+
 %ds load csv data
 %matTagsLiked    = csvread( 'tags_liked.csv' );
 %matTagsDisliked = csvread( 'tags_disliked.csv' );

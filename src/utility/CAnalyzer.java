@@ -71,22 +71,26 @@ public abstract class CAnalyzer
             //logCutoffs( "cutoffs.csv" );
             
             //ds log tags liked and disliked
-            logLearnerTagFrequencies( "tags_liked.csv", "tags_disliked.csv" );
+            //logLearnerTagFrequencies( "tags_liked.csv", "tags_disliked.csv" );
             
-            /*ds user names to log
-            Vector< String > vecUsernames = new Vector< String >( 8 );
-            vecUsernames.add( "Isabellinska" );
-            vecUsernames.add( "judas" );
-            vecUsernames.add( "themanuuu" );
-            vecUsernames.add( "juitto" );
-            vecUsernames.add( "ProProcrastinator" );
-            vecUsernames.add( "carnage" );
-            vecUsernames.add( "ChillyOnMyWilly" );
-            vecUsernames.add( "Glaus" );
-            vecUsernames.add( "memyself" );
+            //ds user names to log
+            Vector< CPair< String, Integer > > vecUsernames = new Vector< CPair< String, Integer > >( 0 );
+            //vecUsernames.add( "Isabellinska" );
+            //vecUsernames.add( "judas" );
+            //vecUsernames.add( "themanuuu" );
+            //vecUsernames.add( "juitto" );
+            //vecUsernames.add( "ProProcrastinator" );
+            //vecUsernames.add( "carnage" );
+            //vecUsernames.add( "ChillyOnMyWilly" );
+            //vecUsernames.add( "Glaus" );
+            //vecUsernames.add( new CPair< String, Integer >( "memyself", 0 ) );
+            vecUsernames.add( new CPair< String, Integer >( "derPekka", 0 ) );
+            vecUsernames.add( new CPair< String, Integer >( "grosser general", 0 ) );
+            vecUsernames.add( new CPair< String, Integer >( "labamba", 0 ) );
+            vecUsernames.add( new CPair< String, Integer >( "proud zep user", 0 ) );
             
             //ds create the csvs for the users
-            logFromLearner( vecUsernames );*/
+            logFromLearner( vecUsernames );
         }
         catch( Exception e )
         {
@@ -171,15 +175,15 @@ public abstract class CAnalyzer
         System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logCutoffs) Computation complete" );           
     }
     
-    public static void logFromLearner( final Vector< String > p_vecUsernames ) throws SQLException, IOException
+    public static void logFromLearner( final Vector< CPair< String, Integer > > p_vecUsernames ) throws SQLException, IOException
     {
-        System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logCutoffs) Retrieving datapoint history for users: " + p_vecUsernames ); 
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logCutoffs) Retrieving datapoint history for users: " + p_vecUsernames.size( ) ); 
         
         //ds for each user
-        for( String strUsername: p_vecUsernames )
+        for( CPair< String, Integer > cUser: p_vecUsernames )
         {
-            //ds call logger
-            m_cMySQLManager.writeCSVFromLogLearner( strUsername );
+            //ds call logger with name and session id
+            m_cMySQLManager.writeCSVFromLogLearner( cUser.A, cUser.B );
         }
         
         System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logCutoffs) learner log evaluation complete" );           

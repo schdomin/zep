@@ -1288,11 +1288,12 @@ public final class CMySQLManager
     }
     
     //ds counts datapoints per current cutoff (SLOW)
-    public final void writeCSVFromLogLearner( final String p_strUsername ) throws SQLException, IOException
+    public final void writeCSVFromLogLearner( final String p_strUsername, final int p_iSessionID ) throws SQLException, IOException
     {
         //ds query on the learners table
-        final PreparedStatement cRetrievePickInformation = m_cMySQLConnection.prepareStatement( "SELECT * FROM `log_learner` WHERE `username` = ( ? )" );
+        final PreparedStatement cRetrievePickInformation = m_cMySQLConnection.prepareStatement( "SELECT * FROM `log_learner` WHERE `username` = ( ? ) AND `id_session` = ( ? )" );
         cRetrievePickInformation.setString( 1, p_strUsername );
+        cRetrievePickInformation.setInt( 2, p_iSessionID );
         cRetrievePickInformation.setQueryTimeout( m_iMySQLTimeoutMS ); 
         
         //ds get the result
