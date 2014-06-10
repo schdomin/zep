@@ -2,13 +2,12 @@ function [ ] = plotFigureWithRandomPoints( p_matLearning, p_strUsername, p_strFi
 
 figure( 1 );
 plot = plotyy( p_matLearning(:,1), log10( p_matLearning(:,3) ), p_matLearning(:,1), p_matLearning(:,2) );
-grid on;
+%grid on;
 hold on;
-title( 'Probability including Random Points (grey)' );
-legend( p_strUsername );
-xlabel( 'datapoint' );
-ylabel(plot(1),'probability (log10)') % left y-axis
-ylabel(plot(2),'netto likes') % right y-axis
+title( [ 'Performance including Random Points (shaded): User [', p_strUsername, ']' ] );
+xlabel( 'Image number' );
+ylabel(plot(1),'Probability for Like (log10)') % left y-axis
+ylabel(plot(2),'Netto Likes') % right y-axis
 
 %ds draw random point rectangles - determine y height
 vecLimitsY = ylim( );
@@ -30,7 +29,7 @@ for u = 1:size( p_matLearning(:,4), 1 )
     elseif( 1 == u-uLastRandomPointEnd )
        
         %ds draw rectangle
-        rectangle( 'Position', [ uLastRandomPointStart-1, vecLimitsY(1), uLastRandomPointEnd-uLastRandomPointStart+1, dHeightY ], 'FaceColor',[ 0.85, 0.85, 0.85 ] );
+        rectangle( 'Position', [ uLastRandomPointStart-1, vecLimitsY(1), uLastRandomPointEnd-uLastRandomPointStart+1, dHeightY ], 'FaceColor',[ 0.95, 0.95, 0.95 ], 'Clipping', 'off', 'LineStyle', ':' );
         
         %ds update start
         uLastRandomPointStart = u;
@@ -47,7 +46,6 @@ end
 %ds hold off
 hold off;
 
-saveas( 1, p_strFilename );
+saveas( 1, p_strFilename, 'epsc' );
 
 end
-

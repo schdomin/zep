@@ -11,8 +11,8 @@ matLearning7 = csvread( 'users/themanuuu.csv' );
 matLearning8 = csvread( 'users/memyself.csv' );
 
 %ds plot figures
-plotFigureWithRandomPoints( matLearning1, 'ChillyOnMyWilly'  , 'users/probability_curve_random_ChillyOnMyWilly.pdf' );
-plotFigureWithRandomPoints( matLearning3, 'Isabellinska'     , 'users/probability_curve_random_Isabellinska.pdf' );
-plotFigureWithRandomPoints( matLearning6, 'ProProcrastinator', 'users/probability_curve_random_ProProcrastinator.pdf' );
-plotFigureWithRandomPoints( matLearning7, 'themanuuu'        , 'users/probability_curve_random_themanuuu.pdf' );
-plotFigureWithRandomPoints( matLearning8, 'memyself'         , 'users/probability_curve_random_memyself.pdf' );
+plotFigureWithRandomPoints( matLearning1, 'ChillyOnMyWilly'  , 'users/probability_curve_ChillyOnMyWilly_random.eps' );
+plotFigureWithRandomPoints( matLearning3, 'Isabellinska'     , 'users/probability_curve_Isabellinska_random.eps' );
+plotFigureWithRandomPoints( matLearning6, 'ProProcrastinator', 'users/probability_curve_ProProcrastinator_random.eps' );
+plotFigureWithRandomPoints( matLearning7, 'themanuuu'        , 'users/probability_curve_themanuuu_random.eps' );
+plotFigureWithRandomPoints( matLearning8, 'memyself'         , 'users/probability_curve_memyself_random.eps' );

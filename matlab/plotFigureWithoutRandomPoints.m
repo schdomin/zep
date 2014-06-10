@@ -22,13 +22,12 @@ end
 
 figure( 1 );
 plot = plotyy( vecDataPoints, log10( vecProbabilities ), vecDataPoints, vecNettoLikes );
-grid on;
-title( 'Probability excluding Random Points' );
-legend( p_strUsername );
-xlabel( 'datapoint' );
-ylabel(plot(1),'probability (log10)') % left y-axis
-ylabel(plot(2),'netto likes') % right y-axis
+%grid on;
+title( [ 'Performance excluding Random Points: User [', p_strUsername, ']' ] );
+xlabel( 'Image number' );
+ylabel(plot(1),'Probability for Like (log10)') % left y-axis
+ylabel(plot(2),'Netto Likes') % right y-axis
 
-saveas( 1, p_strFilename );
+saveas( 1, p_strFilename, 'epsc' );
 
 end
