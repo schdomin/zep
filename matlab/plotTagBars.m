@@ -51,6 +51,7 @@ set( hY1, 'Units', 'Normalized' );
 dPositionY1 = get( hY1, 'Position' );
 set( hY1, 'Position', dPositionY1.*[ 1.1, 1, 1 ] );
 saveas( 1, 'tags_liked.eps', 'epsc' );
+saveas( 1, 'tags_liked.pdf' );
 
 %ds plot
 figure( 2 );
@@ -76,5 +77,6 @@ set( hY2, 'Units', 'Normalized' );
 dPositionY2 = get( hY2, 'Position' );
 set( hY2, 'Position', dPositionY2.*[ 1.1, 1, 1 ] );
 saveas( 2, 'tags_disliked.eps', 'epsc' );
+saveas( 2, 'tags_disliked.pdf' );
 
 %saveas( 1, 'topten_tags.eps', 'epsc' );
