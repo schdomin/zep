@@ -23,6 +23,13 @@ public final class CPair< A, B >
         //ds comparing by probabilities
         public int compare( CPair< ?, ? > p_cPair1, CPair< ?, ? > p_cPair2 )
         {
+            //ds check if the first values are pairs themselves
+            if( p_cPair1.A instanceof CPair< ?, ? > && p_cPair2.A instanceof CPair< ?, ? > )
+            {
+                //ds compare the first sub elements
+                return compare( ( CPair< ?, ? > ) p_cPair1.A, ( CPair< ?, ? > ) p_cPair2.A );
+            }
+            
             //ds check if the values are numerical - integer
             if( p_cPair1.B instanceof Integer && p_cPair2.B instanceof Integer )
             {

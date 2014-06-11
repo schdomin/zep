@@ -1489,10 +1489,10 @@ public final class CMySQLManager
     }
     
     //ds get tag frequencies from learner log
-    public final Vector< CTriplet< String, Double, Integer > > getLearnerTagFrequenciesNormalized( final String p_strTableTags, boolean p_bCountLikes ) throws SQLException, CZEPMySQLManagerException
+    public final Vector< CPair< CPair< String, Double >, CPair< Integer, Integer > > > getLearnerTagFrequenciesNormalized( final String p_strTableTags, boolean p_bCountLikes ) throws SQLException, CZEPMySQLManagerException
     {
         //ds return map
-        Vector< CTriplet< String, Double, Integer > > vecFrequencies = new Vector< CTriplet< String, Double, Integer > >( 0 ); 
+        Vector< CPair< CPair< String, Double >, CPair< Integer, Integer > > > vecFrequencies = new Vector< CPair< CPair< String, Double >, CPair< Integer, Integer > > >( 0 ); 
         
         //ds query for the first datapoint - implicit inner join
         final PreparedStatement cRetrieveDataPointsAndTags = m_cMySQLConnection.prepareStatement
@@ -1513,28 +1513,28 @@ public final class CMySQLManager
             if( ( p_bCountLikes && bLiked ) || ( !p_bCountLikes && !bLiked ) )
             {
                 //ds check if we already have an entry (the numbers dont matter)
-                final int iIndex = vecFrequencies.indexOf( new CTriplet< String, Double, Integer >( strTag, 1.0, 1 ) );
+                final int iIndex = vecFrequencies.indexOf( new CPair< CPair< String, Double >, CPair< Integer, Integer > >( new CPair< String, Double >( strTag, 1.0 ), new CPair< Integer, Integer >( 1, 0 ) ) );
                 
                 //ds if we already have an entry for this tag type
                 if( -1 != iIndex )
                 {
                     //ds just increment the frequency values
-                    vecFrequencies.set( iIndex, new CTriplet< String, Double, Integer >( strTag, vecFrequencies.get( iIndex ).B+1.0, vecFrequencies.get( iIndex ).C+1 ) );
+                    vecFrequencies.set( iIndex, new CPair< CPair< String, Double >, CPair< Integer, Integer > >( new CPair< String, Double >( strTag, vecFrequencies.get( iIndex ).A.B+1.0 ), new CPair< Integer, Integer >( vecFrequencies.get( iIndex ).B.A+1, 0 ) ) );
                 }
                 else
                 {
                     //ds create new entry with frequency 1
-                    vecFrequencies.add( new CTriplet< String, Double, Integer >( strTag, 1.0, 1 ) );
+                    vecFrequencies.add( new CPair< CPair< String, Double >, CPair< Integer, Integer > >( new CPair< String, Double >( strTag, 1.0 ), new CPair< Integer, Integer >( 1, 0 ) ) );
                 }
             }
         }
         
         //ds we now have to normalize the tag frequencies by the total frequencies - TODO: this loop is highly inefficient but is kept for readability
-        for( CTriplet< String, Double, Integer > cTag: vecFrequencies )
+        for( CPair< CPair< String, Double >, CPair< Integer, Integer > > cTag: vecFrequencies )
         {
             //ds get the frequency from MySQL
             final PreparedStatement cStatementGetFrequency = m_cMySQLConnection.prepareStatement( "SELECT * from `" + p_strTableTags + "` WHERE `value` = ( ? ) LIMIT 1" );
-            cStatementGetFrequency.setString( 1, cTag.A );
+            cStatementGetFrequency.setString( 1, cTag.A.A );
             cStatementGetFrequency.setQueryTimeout( m_iMySQLTimeoutMS );
             
             //ds get the result
@@ -1543,13 +1543,19 @@ public final class CMySQLManager
             //ds if we got a frequency result
             if( cResultSetFrequency.next( ) )
             {
+                //ds get frequency as integer
+                final int iFrequency = cResultSetFrequency.getInt( "frequency" );
+                
+                //ds store in vector
+                cTag.B.B = iFrequency;
+                
                 //ds normalize by that amount
-                cTag.B = cTag.B/cResultSetFrequency.getInt( "frequency" );
+                cTag.A.B = cTag.A.B/iFrequency;
             }
             else
             {
                 //ds escape
-                throw new CZEPMySQLManagerException( "no frequency found for tag: " + cTag.A );
+                throw new CZEPMySQLManagerException( "no frequency found for tag: " + cTag.A.A );
             }
         }
         

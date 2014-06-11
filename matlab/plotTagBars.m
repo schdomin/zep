@@ -9,8 +9,8 @@ fileID_Liked    = fopen( 'tags_liked.csv' );
 fileID_Disliked = fopen( 'tags_disliked.csv' );
 
 %ds extract information
-cell_Liked    = textscan( fileID_Liked, '%s%f%u','delimiter',',' );
-cell_Disliked = textscan( fileID_Disliked, '%s%f%u','delimiter',',' );
+cell_Liked    = textscan( fileID_Liked, '%s%f%u%u','delimiter',',' );
+cell_Disliked = textscan( fileID_Disliked, '%s%f%u%u','delimiter',',' );
 
 %ds close files
 fclose( fileID_Liked );
@@ -20,9 +20,11 @@ fclose( fileID_Disliked );
 vecTagsNames_Liked            = cell_Liked{1};
 vecRelativeFrequency_Liked    = cell_Liked{2};
 vecFrequency_Liked            = cell_Liked{3};
+vecFrequency_Liked_Total      = cell_Liked{4};
 vecTagsNames_Disliked         = cell_Disliked{1};
 vecRelativeFrequency_Disliked = cell_Disliked{2};
 vecFrequency_Disliked         = cell_Disliked{3};
+vecFrequency_Disliked_Total   = cell_Disliked{4};
 
 %ds top 10
 uMaximumElements = 10;
@@ -35,7 +37,7 @@ hPlot1 = bar( vecRelativeFrequency_Liked( 1:uMaximumElements ) );
 %ds draw absolute numbers on bars
 for u = 1:1:uMaximumElements
     
-    text( u, vecRelativeFrequency_Liked( u ), num2str( vecFrequency_Liked( u ) ), 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center' );
+    text( u, vecRelativeFrequency_Liked( u ), [ num2str( vecFrequency_Liked( u ) ), '/', num2str( vecFrequency_Liked_Total( u ) ) ], 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center' );
     
 end
 
@@ -61,7 +63,7 @@ hPlot2 = bar( vecRelativeFrequency_Disliked( 1:uMaximumElements ) );
 %ds draw absolute numbers on bars
 for u = 1:1:uMaximumElements
    
-    text( u, vecRelativeFrequency_Disliked( u ), num2str( vecFrequency_Disliked( u ) ), 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center' );
+    text( u, vecRelativeFrequency_Disliked( u ), [ num2str( vecFrequency_Disliked( u ) ), '/', num2str( vecFrequency_Disliked_Total( u ) ) ], 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center' );
     
 end
 

@@ -71,10 +71,10 @@ public abstract class CAnalyzer
             //logCutoffs( "cutoffs.csv" );
             
             //ds log tags liked and disliked
-            //logLearnerTagFrequencies( "tags_liked.csv", "tags_disliked.csv" );
+            logLearnerTagFrequencies( "tags_liked.csv", "tags_disliked.csv" );
             
             //ds user names to log
-            Vector< CPair< String, Integer > > vecUsernames = new Vector< CPair< String, Integer > >( 0 );
+            //Vector< CPair< String, Integer > > vecUsernames = new Vector< CPair< String, Integer > >( 0 );
             //vecUsernames.add( "Isabellinska" );
             //vecUsernames.add( "judas" );
             //vecUsernames.add( "themanuuu" );
@@ -84,13 +84,13 @@ public abstract class CAnalyzer
             //vecUsernames.add( "ChillyOnMyWilly" );
             //vecUsernames.add( "Glaus" );
             //vecUsernames.add( new CPair< String, Integer >( "memyself", 0 ) );
-            vecUsernames.add( new CPair< String, Integer >( "derPekka", 0 ) );
-            vecUsernames.add( new CPair< String, Integer >( "grosser general", 0 ) );
-            vecUsernames.add( new CPair< String, Integer >( "labamba", 0 ) );
-            vecUsernames.add( new CPair< String, Integer >( "proud zep user", 0 ) );
+            //vecUsernames.add( new CPair< String, Integer >( "derPekka", 0 ) );
+            //vecUsernames.add( new CPair< String, Integer >( "grosser general", 0 ) );
+            //vecUsernames.add( new CPair< String, Integer >( "labamba", 0 ) );
+            //vecUsernames.add( new CPair< String, Integer >( "proud zep user", 0 ) );
             
             //ds create the csvs for the users
-            logFromLearner( vecUsernames );
+            //logFromLearner( vecUsernames );
         }
         catch( Exception e )
         {
@@ -194,25 +194,25 @@ public abstract class CAnalyzer
         System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logLearnerTagFrequencies) Aqcuiring tag information from learner table .." );  
         
         //ds map with tag names and frequency
-        Vector< CTriplet< String, Double, Integer > > vecTagFrequenciesLiked    = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", true );
-        Vector< CTriplet< String, Double, Integer > > vecTagFrequenciesDisliked = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", false );
+        Vector< CPair< CPair< String, Double >, CPair< Integer, Integer > > > vecTagFrequenciesLiked    = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", true );
+        Vector< CPair< CPair< String, Double >, CPair< Integer, Integer > > > vecTagFrequenciesDisliked = m_cMySQLManager.getLearnerTagFrequenciesNormalized( "cutoff_104_tags", false );
         
         //ds sort maps by frequencies, descending
-        Collections.sort( vecTagFrequenciesLiked, new CTriplet.CComparatorDecreasing( ) );
-        Collections.sort( vecTagFrequenciesDisliked, new CTriplet.CComparatorDecreasing( ) );
+        Collections.sort( vecTagFrequenciesLiked, new CPair.CComparatorDecreasing( ) );
+        Collections.sort( vecTagFrequenciesDisliked, new CPair.CComparatorDecreasing( ) );
         
         //ds open writers
         FileWriter cWriterLiked    = new FileWriter( p_strFilenameLiked, false );
         FileWriter cWriterDisliked = new FileWriter( p_strFilenameDisliked, false );
         
         //ds write vectors to file
-        for( CTriplet< String, Double, Integer > cTag: vecTagFrequenciesLiked )
+        for( CPair< CPair< String, Double >, CPair< Integer, Integer > > cTag: vecTagFrequenciesLiked )
         {
-            cWriterLiked.append( cTag.A + "," + cTag.B + "," + cTag.C + "\n" );
+            cWriterLiked.append( cTag.A.A + "," + cTag.A.B + "," + cTag.B.A + "," + cTag.B.B + "\n" );
         }
-        for( CTriplet< String, Double, Integer > cTag: vecTagFrequenciesDisliked )
+        for( CPair< CPair< String, Double >, CPair< Integer, Integer > > cTag: vecTagFrequenciesDisliked )
         {
-            cWriterDisliked.append( cTag.A + "," + cTag.B + "," + cTag.C + "\n" );
+            cWriterDisliked.append( cTag.A.A + "," + cTag.A.B + "," + cTag.B.A + "," + cTag.B.B + "\n" );
         }
         
         //ds close writer
