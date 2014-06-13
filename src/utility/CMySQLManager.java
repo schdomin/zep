@@ -1488,7 +1488,7 @@ public final class CMySQLManager
         }        
     }
     
-    //ds get tag frequencies from learner log
+    //ds get tag frequencies from learner log (UGLY pair magic TODO substitute by struct)
     public final Vector< CPair< CPair< String, Double >, CPair< Integer, Integer > > > getLearnerTagFrequenciesNormalized( final String p_strTableTags, boolean p_bCountLikes ) throws SQLException, CZEPMySQLManagerException
     {
         //ds return map
