@@ -1109,6 +1109,94 @@ public final class CMySQLManager
         }
     }
     
+    //ds get data growth values
+    public final Vector< CPair< Integer, Integer > > getDataGrowth( ) throws SQLException
+    {
+        //ds result vector
+        Vector< CPair< Integer, Integer > > vecImages = new Vector< CPair< Integer, Integer > >( 0 );
+        
+        //ds query for the first datapoint - implicit inner join
+        final PreparedStatement cRetrieveDataPointsAndTags = m_cMySQLConnection.prepareStatement
+                                                             ( "SELECT * FROM `datapoints` JOIN mappings ON `datapoints`.`id_datapoint` = `mappings`.`id_datapoint` " +
+                                                                                          "JOIN `tags` ON `tags`.`id_tag` = `mappings`.`id_tag`" );
+        
+        //ds get the result
+        final ResultSet cResultSetDataPoint = cRetrieveDataPointsAndTags.executeQuery( );
+
+        //ds counters
+        int uNumberOfFeatures = 0;
+        //int uNumberOfTagTypes = 0;
+        
+        //ds previous datapoint info
+        int uPreviousDataPoint_ID       = 0;
+        int uPreviousDataPoint_IDTagMax = 0;
+        
+        //ds first datapoint is done ahead to avoid more loop parameters and if clauses
+        if( cResultSetDataPoint.next( ) )
+        {
+            //ds new datapoint
+            uPreviousDataPoint_ID       = cResultSetDataPoint.getInt( "id_datapoint" );
+            uPreviousDataPoint_IDTagMax = cResultSetDataPoint.getInt( "id_tag" );
+            
+            //ds do routine to increment counters (trivial here since the first data point)
+            ++uNumberOfFeatures;
+            //++uNumberOfTagTypes;
+        }
+        
+        //ds as long as we have remaining data
+        while( cResultSetDataPoint.next( ) )
+        {
+            //ds check if pattern id matches previous (we only have to add tags)
+            if( uPreviousDataPoint_ID == cResultSetDataPoint.getInt( "id_datapoint" ) )
+            {
+                //ds increment the features
+                ++uNumberOfFeatures; 
+                
+                //ds get current tag id
+                final int iIDTag = cResultSetDataPoint.getInt( "id_tag" );                
+                
+                //ds check if we got a new tag id (i.e tag id has to be bigger than the last, biggest one set)
+                if( iIDTag > uPreviousDataPoint_IDTagMax )
+                {
+                    //ds also increment the tags
+                    //++uNumberOfTagTypes;
+                    
+                    //ds update the maximum
+                    uPreviousDataPoint_IDTagMax = iIDTag;
+                }  
+            }
+            else
+            {
+                //ds new data point - first add the old one
+                vecImages.add( new CPair< Integer, Integer >( uNumberOfFeatures, uPreviousDataPoint_IDTagMax ) );
+                
+                //ds new datapoint
+                uPreviousDataPoint_ID       = cResultSetDataPoint.getInt( "id_datapoint" );
+                
+                //ds increment total features
+                ++uNumberOfFeatures;
+                
+                //ds get current tag id
+                final int iIDTag = cResultSetDataPoint.getInt( "id_tag" );                
+                
+                //ds check if we got a new tag id (i.e tag id has to be bigger than the last, biggest one set)
+                if( iIDTag > uPreviousDataPoint_IDTagMax )
+                {
+                    //ds also increment the tags
+                    //++uNumberOfTagTypes;
+                    
+                    //ds update the maximum
+                    uPreviousDataPoint_IDTagMax = iIDTag;
+                }                  
+            }
+        }
+        
+        //ds add the last data point
+        vecImages.add( new CPair< Integer, Integer >( uNumberOfFeatures, uPreviousDataPoint_IDTagMax ) );
+        
+        return vecImages;
+    }
+    
     //ds get possible cutoff values
     public final Vector< Integer > getCutoffValues( ) throws SQLException
     {

@@ -1,5 +1,8 @@
 clear;
 
+%ds font size
+uFontSize = 16;
+
 %ds load csv data
 %matTagsLiked    = csvread( 'tags_liked.csv' );
 %matTagsDisliked = csvread( 'tags_disliked.csv' );
@@ -32,12 +35,13 @@ uMaximumElements = 10;
 %ds plot
 figure( 1 );
 %subplot(3,1,1);
-hPlot1 = bar( vecRelativeFrequency_Liked( 1:uMaximumElements ) );
+
+hPlot1 = bar( vecRelativeFrequency_Liked( 1:uMaximumElements ), 'FaceColor', [0 0.75 0] );
 
 %ds draw absolute numbers on bars
 for u = 1:1:uMaximumElements
     
-    text( u, vecRelativeFrequency_Liked( u ), [ num2str( vecFrequency_Liked( u ) ), '/', num2str( vecFrequency_Liked_Total( u ) ) ], 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center' );
+    text( u, vecRelativeFrequency_Liked( u ), [ num2str( vecFrequency_Liked( u ) ), '/', num2str( vecFrequency_Liked_Total( u ) ) ], 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'FontSize', 12 );
     
 end
 
@@ -46,24 +50,26 @@ rotateXLabels( gca( ), 45 );
 set( gca( ), 'XLim', [0 uMaximumElements+1] );
 set( gca( ), 'YLim', [0 0.55] );
 set( hPlot1, 'barwidth', .75 );
-hTitle1 = title( 'Top 10: Tags Liked' );
-ylabel( 'relative frequency [liked/available]' );
+hTitle1 = title( 'Top 10: Tags Liked', 'FontSize', uFontSize, 'interpreter', 'latex' );
+yLabel1 = ylabel( 'Relative frequency [liked/available]', 'FontSize', uFontSize, 'interpreter', 'latex' );
 hY1 = get( gca, 'YLabel' );
 set( hY1, 'Units', 'Normalized' );
 dPositionY1 = get( hY1, 'Position' );
 set( hY1, 'Position', dPositionY1.*[ 1.1, 1, 1 ] );
+set( yLabel1, 'Units', 'Normalized', 'Position', [-0.08,  0.5, 0]);
+set( gca, 'FontSize' ,uFontSize );
 saveas( 1, 'tags_liked.eps', 'epsc' );
 saveas( 1, 'tags_liked.pdf' );
 
 %ds plot
 figure( 2 );
 %subplot(3,1,3);
-hPlot2 = bar( vecRelativeFrequency_Disliked( 1:uMaximumElements ) );
+hPlot2 = bar( vecRelativeFrequency_Disliked( 1:uMaximumElements ), 'red' );
 
 %ds draw absolute numbers on bars
 for u = 1:1:uMaximumElements
    
-    text( u, vecRelativeFrequency_Disliked( u ), [ num2str( vecFrequency_Disliked( u ) ), '/', num2str( vecFrequency_Disliked_Total( u ) ) ], 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center' );
+    text( u, vecRelativeFrequency_Disliked( u ), [ num2str( vecFrequency_Disliked( u ) ), '/', num2str( vecFrequency_Disliked_Total( u ) ) ], 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'FontSize', 12 );
     
 end
 
@@ -72,12 +78,14 @@ rotateXLabels( gca( ), 45 );
 set( gca( ), 'XLim', [0 uMaximumElements+1] );
 set( gca( ), 'YLim', [0 0.55] );
 set( hPlot2, 'barwidth', .75 );
-hTitle2 = title( 'Top 10: Tags Disliked' );
-ylabel( 'relative frequency [disliked/available]' );
+hTitle2 = title( 'Top 10: Tags Disliked', 'FontSize', uFontSize, 'interpreter', 'latex' );
+yLabel2 = ylabel( 'Relative frequency [disliked/available]', 'FontSize', uFontSize, 'interpreter', 'latex' );
 hY2 = get( gca, 'YLabel' );
 set( hY2, 'Units', 'Normalized' );
 dPositionY2 = get( hY2, 'Position' );
 set( hY2, 'Position', dPositionY2.*[ 1.1, 1, 1 ] );
+set( yLabel2, 'Units', 'Normalized', 'Position', [-0.08,  0.5, 0]);
+set( gca, 'FontSize' ,uFontSize );
 saveas( 2, 'tags_disliked.eps', 'epsc' );
 saveas( 2, 'tags_disliked.pdf' );
 

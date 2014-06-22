@@ -1,5 +1,8 @@
 clear;
 
+%ds font size
+uFontSize = 16;
+
 %ds load csv data
 matCutoffs = csvread( 'cutoffs.csv' );
 
@@ -15,9 +18,14 @@ vecRelative = vecPoints./( vecTypes+vecCutoffs );
 figure( 1 );
 hPlot = plot( vecCutoffs, vecRelative, 'blue' );
 axis( [0, vecCutoffs( end ), 0, 90 ] );
-title( 'Ratio f(x): $\frac{DataPoints(x)}{TagTypes(x)+x}$', 'interpreter', 'latex' );
-xlabel( 'x: Cutoff frequency', 'interpreter', 'latex' );
-ylabel( 'f(x): Ratio', 'interpreter', 'latex' );
+title( 'Ratio $\eta(x)$: $\frac{Images(x)}{Tags(x)+x}$', 'FontSize', uFontSize, 'interpreter', 'latex' );
+xLabel1 = xlabel( 'x: Cutoff frequency', 'FontSize', uFontSize, 'interpreter', 'latex' );
+yLabel1 = ylabel( '$\eta(x)$: Ratio', 'FontSize', uFontSize, 'interpreter', 'latex' );
+
+%ds fix label to axis spacing
+set( xLabel1, 'Units', 'Normalized', 'Position', [ 0.5, -0.09, 0]);
+set( yLabel1, 'Units', 'Normalized', 'Position', [-0.08,  0.5, 0]);
+
 grid on;
 
 %ds snippet: get max and min values of the plot
@@ -29,8 +37,9 @@ imax = find( max( yValue ) == yValue );
 iBestCutoff = xValue( imax );
 
 %ds label the max. and min. values  on the plot
-text( xValue( imax ),yValue( imax ),[ ' $f_{max}=',num2str( yValue( imax ) ), '(x=',num2str( iBestCutoff ),')$' ],...
-     'interpreter', 'latex', 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'left' );
+text( xValue( imax ),yValue( imax ),[ ' $\eta_{max}=',num2str( yValue( imax ) ), '(x=',num2str( iBestCutoff ),')$' ],...
+     'FontSize', uFontSize, 'interpreter', 'latex', 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'left' );
+set(gca,'FontSize',uFontSize);
 
 saveas( 1, 'cutoff_choice.eps', 'epsc' );
 
@@ -51,15 +60,21 @@ iTypes       = vecTypes( iIndexCutoff );
 %ds plot
 figure( 2 );
 plot( vecCutoffs, vecTypes, 'blue', vecCutoffs, vecPoints, 'red' );
-line( [ iCoordinateX, iCoordinateX ], [0, iCoordinateY ], 'Color', 'green' );
+line( [ iCoordinateX, iCoordinateX ], [0, iCoordinateY ], 'Color', 'black', 'LineStyle', '--' );
 axis( [0, vecCutoffs( end ), 0, iMaximumPoints ] );
 set(gca,'YTickLabel',num2str(get(gca,'YTick').'));
 grid on;
-title( 'Cutoff Relation', 'interpreter', 'latex' );
-xlabel( 'Cutoff frequency', 'interpreter', 'latex' );
-ylabel( 'Amount', 'interpreter', 'latex' );
-text( iCoordinateX, iCoordinateY, [ ' cutoff ', num2str( iBestCutoff ),': points=', num2str( iCoordinateY ), ', types=', num2str( iTypes ) ], 'interpreter', 'latex', 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'left' );
-hLegend = legend( [ 'Tag types (total: ', num2str( iMaximumTypes ), ')\hspace{0.5cm}' ], [ 'Datapoints (total: ', num2str( iMaximumPoints ),  ')\hspace{0.5cm}' ], 'Current cutoff choice ($104$)' );
+title( 'Cutoff Relation', 'FontSize', uFontSize, 'interpreter', 'latex' );
+xLabel2 = xlabel( 'Cutoff frequency', 'FontSize', uFontSize, 'interpreter', 'latex' );
+yLabel2 = ylabel( 'Number of Images', 'FontSize', uFontSize, 'interpreter', 'latex' );
+
+%ds fix label to axis spacing
+set( xLabel2, 'Units', 'Normalized', 'Position', [ 0.5, -0.09, 0]);
+set( yLabel2, 'Units', 'Normalized', 'Position', [-0.13,  0.5, 0]);
+
+text( iCoordinateX, iCoordinateY, [ ' cutoff ', num2str( iBestCutoff ),': images=', num2str( iCoordinateY ), ', tags=', num2str( iTypes ) ], 'FontSize', uFontSize, 'interpreter', 'latex', 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'left' );
+hLegend = legend( [ 'Tags (total: ', num2str( iMaximumTypes ), ')\hspace{0.5cm}' ], [ 'Images (total: ', num2str( iMaximumPoints ),  ')\hspace{0.5cm}' ], 'Current cutoff choice ($104$)\hspace{0.1cm}' );
 set( hLegend, 'interpreter', 'Latex' );
+set(gca,'FontSize',uFontSize);
 
 saveas( 2, 'cutoff_curve.eps', 'epsc' );

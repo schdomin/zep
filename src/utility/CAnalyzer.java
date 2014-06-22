@@ -67,11 +67,14 @@ public abstract class CAnalyzer
         
         try
         {
+            //ds analyse data growth
+            logDataGrowth( "growth.csv" );
+            
             //ds log cutoffs
             //logCutoffs( "cutoffs.csv" );
             
             //ds log tags liked and disliked
-            logLearnerTagFrequencies( "tags_liked.csv", "tags_disliked.csv" );
+            //logLearnerTagFrequencies( "tags_liked.csv", "tags_disliked.csv" );
             
             //ds user names to log
             //Vector< CPair< String, Integer > > vecUsernames = new Vector< CPair< String, Integer > >( 0 );
@@ -102,6 +105,29 @@ public abstract class CAnalyzer
         System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(main) terminated" ); 
         System.exit( 0 );
         return;
+    }
+    
+    public static void logDataGrowth( final String p_strFilename ) throws SQLException, IOException
+    {
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logDataGrowth) Computing data growth .." );  
+        
+        //ds obtain vector with total features and tags per image
+        Vector< CPair< Integer, Integer > > vecImages = m_cMySQLManager.getDataGrowth( );
+
+        //ds open writer
+        FileWriter cWriter = new FileWriter( p_strFilename, false );
+        
+        //ds loop over the vector
+        for( int u = 0; u < vecImages.size( ); ++u )
+        {
+            //ds write to file
+            cWriter.append( ( u+1 ) + "," + vecImages.get( u ).A + "," + vecImages.get( u ).B + "\n" );            
+        }
+        
+        //ds close writer
+        cWriter.close( );
+        
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CAnalyzer>(logDataGrowth) Data growth computation complete" );      
     }
 
     public static void logCutoffs( final String p_strFilename ) throws SQLException, IOException

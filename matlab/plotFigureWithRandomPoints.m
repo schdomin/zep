@@ -1,13 +1,18 @@
 function [ ] = plotFigureWithRandomPoints( p_matLearning, p_strUsername, p_strFilename )
 
+%ds font size
+uFontSize = 16;
+
 figure( 1 );
 plot = plotyy( p_matLearning(:,1), log10( p_matLearning(:,3) ), p_matLearning(:,1), p_matLearning(:,2) );
 %grid on;
 hold on;
-title( [ 'Performance including Random Points (shaded): User [', p_strUsername, ']' ] );
-xlabel( 'Image number' );
-ylabel(plot(1),'Probability for Like (log10)') % left y-axis
-ylabel(plot(2),'Netto Likes') % right y-axis
+title( [ 'Performance including Random Images (shaded): User [', p_strUsername, ']' ], 'FontSize', uFontSize, 'interpreter', 'Latex' );
+xLabel = xlabel( 'Image number', 'FontSize', uFontSize, 'interpreter', 'Latex' );
+ylabel(plot(1),'Probability for Like (log10)', 'FontSize', uFontSize, 'interpreter', 'Latex' ) % left y-axis
+ylabel(plot(2),'Netto Likes', 'FontSize', uFontSize, 'interpreter', 'Latex' ) % right y-axis
+
+set( xLabel, 'Units', 'Normalized', 'Position', [ 0.5, -0.08, 0]);
 
 %ds draw random point rectangles - determine y height
 vecLimitsY = ylim( );
@@ -45,6 +50,8 @@ end
 
 %ds hold off
 hold off;
+
+set( plot, 'FontSize', uFontSize );
 
 saveas( 1, p_strFilename, 'epsc' );
 

@@ -1,5 +1,7 @@
 function [ ] = plotFigureWithoutRandomPoints( p_matLearning, p_strUsername, p_strFilename )
 
+%ds font size
+uFontSize = 16;
 
 %ds data holders to be filled (dynamically)
 vecDataPoints    = [];
@@ -23,10 +25,14 @@ end
 figure( 1 );
 plot = plotyy( vecDataPoints, log10( vecProbabilities ), vecDataPoints, vecNettoLikes );
 %grid on;
-title( [ 'Performance excluding Random Points: User [', p_strUsername, ']' ] );
-xlabel( 'Image number' );
-ylabel(plot(1),'Probability for Like (log10)') % left y-axis
-ylabel(plot(2),'Netto Likes') % right y-axis
+title( [ 'Performance excluding Random Images: User [', p_strUsername, ']' ], 'FontSize', uFontSize, 'interpreter', 'Latex' );
+xLabel = xlabel( 'Image number', 'FontSize', uFontSize, 'interpreter', 'Latex' );
+ylabel( plot(1),'Probability for Like (log10)', 'FontSize', uFontSize, 'interpreter', 'Latex' ) % left y-axis
+ylabel( plot(2),'Netto Likes', 'FontSize', uFontSize, 'interpreter', 'Latex' ) % right y-axis
+
+set( xLabel, 'Units', 'Normalized', 'Position', [ 0.5, -0.08, 0]);
+
+set( plot, 'FontSize', uFontSize );
 
 saveas( 1, p_strFilename, 'epsc' );
 
