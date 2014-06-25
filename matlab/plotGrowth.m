@@ -2,6 +2,7 @@ clear;
 
 %ds font size
 uFontSize = 16;
+dLineWidth = 2.0;
 
 %ds load csv data
 matCutoffs = csvread( 'growth.csv' );
@@ -12,11 +13,11 @@ vecFeatures = matCutoffs( :, 2 );
 vecTagTypes = matCutoffs( :, 3 );
 
 %ds compute the tag density
-vecRelative = vecTagTypes./vecImageIDs;
+vecRelative = vecImageIDs./vecTagTypes;
  
 %ds plot
 figure( 1 );
-hPlot = plot( vecImageIDs, vecFeatures, vecImageIDs, vecTagTypes, vecImageIDs, vecImageIDs, '--' );
+hPlot = plot( vecImageIDs, vecFeatures, vecImageIDs, vecTagTypes, vecImageIDs, vecImageIDs, '--', 'LineWidth', dLineWidth );
 %axis( [0, vecImageID( end ), 0, 90 ] );
 set(gca,'XTickLabel',num2str(get(gca,'XTick').'));
 set(gca,'YTickLabel',num2str(get(gca,'YTick').'));
@@ -38,7 +39,7 @@ saveas( 1, 'data_growth.eps', 'epsc' );
 
 %ds plot
 figure( 2 );
-plot( vecImageIDs, vecRelative, 'blue' );
+plot( vecImageIDs, vecRelative, 'blue', 'LineWidth', dLineWidth );
 %axis( [0, vecImageID( end ), 0, iMaximumPoints ] );
 %set(gca,'YTickLabel',num2str(get(gca,'YTick').'));
 grid on;

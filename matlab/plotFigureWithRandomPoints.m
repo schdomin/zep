@@ -2,10 +2,15 @@ function [ ] = plotFigureWithRandomPoints( p_matLearning, p_strUsername, p_strFi
 
 %ds font size
 uFontSize = 16;
+dLineWidth = 2.0;
 
 figure( 1 );
-plot = plotyy( p_matLearning(:,1), log10( p_matLearning(:,3) ), p_matLearning(:,1), p_matLearning(:,2) );
+[ plot, y1, y2 ] = plotyy( p_matLearning(:,1), log10( p_matLearning(:,3) ), p_matLearning(:,1), p_matLearning(:,2) );
 %grid on;
+%ds set line widths
+set( y1, 'LineWidth', dLineWidth );
+set( y2, 'LineWidth', dLineWidth );
+
 hold on;
 title( [ 'Performance including Random Images (shaded): User [', p_strUsername, ']' ], 'FontSize', uFontSize, 'interpreter', 'Latex' );
 xLabel = xlabel( 'Image number', 'FontSize', uFontSize, 'interpreter', 'Latex' );

@@ -2,6 +2,7 @@ function [ ] = plotFigureWithoutRandomPoints( p_matLearning, p_strUsername, p_st
 
 %ds font size
 uFontSize = 16;
+dLineWidth = 2.0;
 
 %ds data holders to be filled (dynamically)
 vecDataPoints    = [];
@@ -23,7 +24,12 @@ for u = 1:size( p_matLearning, 1 )
 end
 
 figure( 1 );
-plot = plotyy( vecDataPoints, log10( vecProbabilities ), vecDataPoints, vecNettoLikes );
+[ plot, y1, y2 ] = plotyy( vecDataPoints, log10( vecProbabilities ), vecDataPoints, vecNettoLikes );
+
+%ds set line widths
+set( y1, 'LineWidth', dLineWidth );
+set( y2, 'LineWidth', dLineWidth );
+
 %grid on;
 title( [ 'Performance excluding Random Images: User [', p_strUsername, ']' ], 'FontSize', uFontSize, 'interpreter', 'Latex' );
 xLabel = xlabel( 'Image number', 'FontSize', uFontSize, 'interpreter', 'Latex' );

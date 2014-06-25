@@ -2,6 +2,7 @@ clear;
 
 %ds font size
 uFontSize = 16;
+dLineWidth = 2.0;
 
 %ds load csv data
 matCutoffs = csvread( 'cutoffs.csv' );
@@ -16,7 +17,7 @@ vecRelative = vecPoints./( vecTypes+vecCutoffs );
  
 %ds plot
 figure( 1 );
-hPlot = plot( vecCutoffs, vecRelative, 'blue' );
+hPlot = plot( vecCutoffs, vecRelative, 'blue', 'LineWidth', dLineWidth );
 axis( [0, vecCutoffs( end ), 0, 90 ] );
 title( 'Ratio $\eta(x)$: $\frac{Images(x)}{Tags(x)+x}$', 'FontSize', uFontSize, 'interpreter', 'latex' );
 xLabel1 = xlabel( 'x: Cutoff frequency', 'FontSize', uFontSize, 'interpreter', 'latex' );
@@ -59,8 +60,8 @@ iTypes       = vecTypes( iIndexCutoff );
 
 %ds plot
 figure( 2 );
-plot( vecCutoffs, vecTypes, 'blue', vecCutoffs, vecPoints, 'red' );
-line( [ iCoordinateX, iCoordinateX ], [0, iCoordinateY ], 'Color', 'black', 'LineStyle', '--' );
+plot( vecCutoffs, vecTypes, 'blue', vecCutoffs, vecPoints, 'red', 'LineWidth', dLineWidth );
+line( [ iCoordinateX, iCoordinateX ], [0, iCoordinateY ], 'Color', 'black', 'LineStyle', '--', 'LineWidth', dLineWidth );
 axis( [0, vecCutoffs( end ), 0, iMaximumPoints ] );
 set(gca,'YTickLabel',num2str(get(gca,'YTick').'));
 grid on;
