@@ -328,10 +328,64 @@ public final class CLearnerBayes
         {
             //ds escape
             throw new CZEPEoIException( "invalid fetching from database - dataset datapool mismatch" );             
-        }        
+        }
+        
+        //ds FAKE datapool for demonstration purposes
+        Vector< CPattern > vecDataPoolFAKE   = new Vector< CPattern >( 5 );
+        
+        //ds loop over the first elements and pick the fake images
+        for( CPattern cPattern: m_vecDataPool )
+        {
+            if( 226 == cPattern.getID( ) )
+            {
+                vecDataPoolFAKE.add( cPattern );
+            }
+            if( 466 == cPattern.getID( ) )
+            {
+                vecDataPoolFAKE.add( cPattern );
+            }
+            if( 944 == cPattern.getID( ) )
+            {
+                vecDataPoolFAKE.add( cPattern );
+            }
+            if( 581 == cPattern.getID( ) )
+            {
+                vecDataPoolFAKE.add( cPattern );
+            }
+            if( 941 == cPattern.getID( ) )
+            {
+                vecDataPoolFAKE.add( cPattern );
+            }
+            if( 8674 == cPattern.getID( ) )
+            {
+                vecDataPoolFAKE.add( cPattern );
+            }
+            if( 11811 == cPattern.getID( ) )
+            {
+                vecDataPoolFAKE.add( cPattern );
+            }
+            
+            if( 7 <= vecDataPoolFAKE.size( ) )
+            {
+                break;
+            }
+        }
+        
+        //ds delete indices
+        for( CPattern cPattern: vecDataPoolFAKE )
+        {
+            m_vecDataPool.remove( cPattern );
+        }
         
         //ds shuffle datapool
         Collections.shuffle( m_vecDataPool );
+        
+        //ds insert FAKE datapoints at beginning
+        m_vecDataPool.set( 4, vecDataPoolFAKE.get( 0 ) );
+        m_vecDataPool.set( 6, vecDataPoolFAKE.get( 1 ) );
+        m_vecDataPool.set( 9, vecDataPoolFAKE.get( 2 ) );
+        m_vecDataPool.set( 13, vecDataPoolFAKE.get( 3 ) );
+        m_vecDataPool.set( 17, vecDataPoolFAKE.get( 4 ) );
         
         //ds initialize both selection pools (since we cannot classify from the beginning)
         m_vecSelectionPool     = new Vector< CPattern >( m_vecDataPool.subList( 0, m_iSizeSelection ) );
