@@ -14,8 +14,11 @@ import org.opencv.core.MatOfDouble;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
 
 //ds custom
@@ -65,10 +68,10 @@ public abstract class CImageHandler
         Imgproc.cvtColor( matImageRGB, matImageGrayScale, Imgproc.COLOR_RGB2GRAY );
         
         //ds tophat filter 
-        Imgproc.morphologyEx( matImageGrayScale, matImageGrayScale, Imgproc.MORPH_TOPHAT, Imgproc.getStructuringElement( Imgproc.CV_SHAPE_RECT, new Size( 21, 3 ) ) );
+        Imgproc.morphologyEx( matImageGrayScale, matImageGrayScale, Imgproc.MORPH_TOPHAT, Imgproc.getStructuringElement( Imgproc.CV_SHAPE_RECT, new Size( 21, 8 ) ) );
 
         //ds threshold
-        Imgproc.threshold( matImageGrayScale, matImageGrayScale, 125, 255, Imgproc.THRESH_BINARY );
+        Imgproc.threshold( matImageGrayScale, matImageGrayScale, 100, 255, Imgproc.THRESH_BINARY );
         
         //ds smooth the image
         Imgproc.GaussianBlur( matImageGrayScale, matImageGrayScale, new Size( 3, 3 ), 0 );
@@ -129,16 +132,16 @@ public abstract class CImageHandler
         	//ds add to total area
         	dTotalTextArea += cTextBox.area( );
         	
-        	/*ds compute corner points for the rectangle to draw
+        	//ds compute corner points for the rectangle to draw
         	final Point cBR = new Point( cTextBox.x, cTextBox.y );
         	final Point cTL = new Point( cTextBox.x+cTextBox.width, cTextBox.y+cTextBox.height );
         
         	//ds and draw it on the input matrix
-        	Core.rectangle( matImageRGB, cBR, cTL, new Scalar( 255, 0, 0 ), 2 );*/
+        	Core.rectangle( matImageRGB, cBR, cTL, new Scalar( 50, 255, 50 ), 2 );
         }
         
         //ds final image
-        //Highgui.imwrite( "final.jpg", matImageRGB );
+        Highgui.imwrite( "final.jpg", matImageRGB );
         
         //ds compute text percentage
         return dTotalTextArea/matImageRGB.total( );
@@ -172,14 +175,14 @@ public abstract class CImageHandler
     	Imgproc.calcHist( lstImageRGB, arrChannelsB, new Mat( ), matHistogramB, arrHistSize, arrRanges, true );
     	
     	//ds histogram dimensions
-    	//final int iHistWidth  = 800;
-    	//final int iHistHeight = 600;
+    	final int iHistWidth  = p_cImage.getWidth( );
+    	final int iHistHeight = p_cImage.getHeight( );
     	
     	//ds width per bin
-    	//final int iBinWidth  = ( int ) Math.round( ( double ) iHistWidth/iHistSize );
+    	final int iBinWidth  = ( int ) Math.round( ( double ) iHistWidth/iHistSize );
 
     	//ds allocate the final image
-    	//Mat matHistogramRGB = new Mat( iHistHeight, iHistWidth, CvType.CV_8UC3, new Scalar( 0, 0, 0 ) );
+    	Mat matDrawHistogramRGB = new Mat( iHistHeight, iHistWidth, CvType.CV_8UC3, new Scalar( 0, 0, 0 ) );
     	
     	//ds get total entries per color channel
         final double dTotalEntriesR = Core.sumElems( matHistogramR ).val[0];
@@ -205,40 +208,94 @@ public abstract class CImageHandler
     		if( dMaxValueB < dCurrentEntriesB ){ dMaxValueB = dCurrentEntriesB; }
     	}
     	
-    	System.out.println( "max R: " + dMaxValueR/dTotalEntriesR );
-    	System.out.println( "max G: " + dMaxValueG/dTotalEntriesG );
-    	System.out.println( "max B: " + dMaxValueB/dTotalEntriesB );
+    	//System.out.println( "max R: " + dMaxValueR/dTotalEntriesR );
+    	//System.out.println( "max G: " + dMaxValueG/dTotalEntriesG );
+    	//System.out.println( "max B: " + dMaxValueB/dTotalEntriesB );
     	
     	//ds compute average maximum value
     	final double dAverageMaximum = ( dMaxValueR/dTotalEntriesR + dMaxValueG/dTotalEntriesG + dMaxValueB/dTotalEntriesB )/3;
     	
     	System.out.println( "max Total: " + dAverageMaximum );
+    	
+        //ds get std dev and mean
+        MatOfDouble matMean   = new MatOfDouble( 0.0 );
+        MatOfDouble matStdDev = new MatOfDouble( 0.0 );
+        Core.meanStdDev( matHistogramR, matMean, matStdDev );
+        
+        //ds set statistical values
+        final double dTotalEntries = Core.sumElems( matHistogramR ).val[0];
+        double dMeanR              = matMean.get( 0, 0 )[0];
+        double dStdDevR            = matStdDev.get( 0, 0 )[0];
+        
+        //ds normalize all values
+        dMeanR     = dMeanR/dTotalEntries;
+        dStdDevR   = dStdDevR/dTotalEntries;
+        
+        //System.out.println( "Mean R: " + dMeanR );
+        //System.out.println( "StdDev R: " + dStdDevR );
+        
+        //ds get std dev and mean
+        Core.meanStdDev( matHistogramG, matMean, matStdDev );
+        
+        //ds set statistical values
+        double dMeanG              = matMean.get( 0, 0 )[0];
+        double dStdDevG            = matStdDev.get( 0, 0 )[0];
+        
+        //ds normalize all values
+        dMeanG     = dMeanG/dTotalEntries;
+        dStdDevG   = dStdDevG/dTotalEntries;
+        
+        //System.out.println( "Mean G: " + dMeanG );
+        //System.out.println( "StdDev G: " + dStdDevG );
+        
+        double dMeanB              = matMean.get( 0, 0 )[0];
+        double dStdDevB            = matStdDev.get( 0, 0 )[0];
+        
+        //ds get std dev and mean
+        Core.meanStdDev( matHistogramB, matMean, matStdDev );
+        
+        //ds set statistical values
+        dMeanB               = matMean.get( 0, 0 )[0];
+        dStdDevB             = matStdDev.get( 0, 0 )[0];
+        
+        //ds normalize all values
+        dMeanB     = dMeanB/dTotalEntries;
+        dStdDevB   = dStdDevB/dTotalEntries;
+        
+        //System.out.println( "Mean B: " + dMeanB );
+        //System.out.println( "StdDev B: " + dStdDevB );
+        
+        final double dMeanRGB   = (dMeanR+dMeanG+dMeanB)/3;
+        final double dStdDevRGB = (dStdDevR+dStdDevG+dStdDevB)/3;
+        
+        System.out.println( "Mean RGB: " + dMeanRGB );
+        System.out.println( "StdDev RGB: " + dStdDevRGB );
 
     	//ds normalize the result
-    	//Core.normalize( matHistogramR, matHistogramR, 0, matHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
-    	//Core.normalize( matHistogramG, matHistogramG, 0, matHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
-    	//Core.normalize( matHistogramB, matHistogramB, 0, matHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
+    	Core.normalize( matHistogramR, matHistogramR, 0, matDrawHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
+    	Core.normalize( matHistogramG, matHistogramG, 0, matDrawHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
+    	Core.normalize( matHistogramB, matHistogramB, 0, matDrawHistogramRGB.rows( ), Core.NORM_MINMAX, -1, new Mat( ) );
 
-    	/*ds raw for each channel
+    	//ds raw for each channel
     	for( int i = 1; i < iHistSize; ++i )
     	{
     		//ds the curve
-    		Core.line( matHistogramRGB,
+    		Core.line( matDrawHistogramRGB,
     				   new Point( iBinWidth*( i-1 ), iHistHeight - Math.round( matHistogramR.get( i-1,0 )[0] ) ),
                        new Point( iBinWidth*( i )  , iHistHeight - Math.round( matHistogramR.get( i, 0 )[0] ) ),
                        new Scalar( 0, 0, 255 ), 1 );
-    		Core.line( matHistogramRGB,
+    		Core.line( matDrawHistogramRGB,
  				   	   new Point( iBinWidth*( i-1 ), iHistHeight - Math.round( matHistogramG.get( i-1,0 )[0] ) ),
  				   	   new Point( iBinWidth*( i )  , iHistHeight - Math.round( matHistogramG.get( i, 0 )[0] ) ),
  				   	   new Scalar( 0, 255, 0 ), 1 );
-    		Core.line( matHistogramRGB,
+    		Core.line( matDrawHistogramRGB,
  				   	   new Point( iBinWidth*( i-1 ), iHistHeight - Math.round( matHistogramB.get( i-1,0 )[0] ) ),
  				   	   new Point( iBinWidth*( i )  , iHistHeight - Math.round( matHistogramB.get( i, 0 )[0] ) ),
  				   	   new Scalar( 255, 0, 0 ), 1 );
     	}
     	
     	//ds save the image
-    	Highgui.imwrite( "histogram.jpg", matHistogramRGB );*/
+    	Highgui.imwrite( "histogram.jpg", matDrawHistogramRGB );
     	
     	//ds return
     	return ( dAverageMaximum < 0.1 );

@@ -1,6 +1,7 @@
 package crawling;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -71,9 +72,28 @@ public class CCheezcrawler extends Thread
     };
     
     //ds standalone
-    public static void main( String[] args ) throws MalformedURLException
+    public static void main( String[] args ) throws IOException, CZEPConversionException
     {
-        //ds default configuration parameters: mysql
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) MOCK LAUNCHED" );
+        
+        //ds load OpenCV core
+        System.loadLibrary( Core.NATIVE_LIBRARY_NAME );
+        
+        //BufferedImage imgPDDrawing    = ImageIO.read( new File( "photo_detection_drawing_image.jpg" ) );
+        //BufferedImage imgPDPhotograph = ImageIO.read( new File( "photo_detection_photograph_image.jpg" ) );
+        //BufferedImage imgTextDetectionEasy = ImageIO.read( new File( "advice_mallard.jpg" ) );
+        BufferedImage imgTextDetectionHard = ImageIO.read( new File( "test.jpeg" ) );
+        
+        //CImageHandler.isAPhotographRGB( imgPDDrawing );
+        //CImageHandler.isAPhotographRGB( imgPDPhotograph );
+        //System.out.println( "text percentage: " + CImageHandler.getTextPercentageCanny( imgTextDetectionEasy ) );
+        System.out.println( "text percentage: " + CImageHandler.getTextPercentageCanny( imgTextDetectionHard ) );
+        
+        System.out.println( "[" + CLogger.getStamp( ) + "]<CMain>(main) MOCK TERMINATED" );
+        return;
+        
+        
+        /*ds default configuration parameters: mysql
         String strMySQLServerURL = "";
         String strMySQLUsername  = "";
         String strMySQLPassword  = "";
@@ -133,7 +153,7 @@ public class CCheezcrawler extends Thread
         final Thread cCrawler = new Thread( new CCheezcrawler( cMySQLManager, cMasterURL_Cheezcrawler, iNumberOfImages_Cheezcrawler, iMaximumPage_Cheezcrawler, iTimeoutMS_Cheezcrawler, iLogLevel_Cheezcrawler ) );
         
         //ds start it (blocking)
-        cCrawler.run( );
+        cCrawler.run( );*/
     }
 
     //ds starts crawling
